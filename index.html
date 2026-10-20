@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080C11">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Life Reset">
+  <meta name="description" content="Life Reset – osobní systém pro rutinu, kalendář, jídlo, trénink, finance a side hustles.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/favicon-64.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Saira:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <title>Life Reset</title>
+</head>
+<body>
+  <div id="boot" aria-live="polite">
+    <div class="boot-core">
+      <svg class="boot-ring" viewBox="0 0 200 200" aria-hidden="true">
+        <circle class="br-track" cx="100" cy="100" r="86"/>
+        <circle class="br-seg br-a" cx="100" cy="100" r="86"/>
+        <circle class="br-seg br-b" cx="100" cy="100" r="70"/>
+        <circle class="br-seg br-c" cx="100" cy="100" r="54"/>
+        <circle class="br-dot" cx="100" cy="100" r="22"/>
+      </svg>
+      <div class="boot-mark">LR</div>
+    </div>
+    <div class="boot-lines">
+      <p class="boot-line l1">Spouštím systémy</p>
+      <p class="boot-line l2">Načítám tvůj den</p>
+      <p class="boot-welcome" id="bootWelcome">Welcome, Master M</p>
+    </div>
+  </div>
+
+  <div id="app" hidden>
+    <header id="top"></header>
+    <main id="view" tabindex="-1"></main>
+    <nav id="tabs" aria-label="Hlavní navigace"></nav>
+  </div>
+  <div id="sheets"></div>
+  <div id="toasts" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

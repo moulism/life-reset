@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "ritwickdey.LiveServer",
+    "supabase.vscode-supabase-extension",
+    "github.vscode-pull-request-github",
+    "esbenp.prettier-vscode"
+  ]
+}

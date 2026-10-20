@@ -2,7 +2,8 @@
 import { db } from '../store.js';
 import { award, revoke } from '../game.js';
 import { esc, icon, today, fmtDay, openForm, toast, empty, segTabs, clamp, confirmSheet } from '../ui.js';
-import { BOOKS } from '../data/books.js';
+import { BOOKS, bookInfo, shopLinks } from '../data/books.js';
+import { fileRow, pickFiles, handleFileAct, openFile } from '../common.js';
 
 let tab = 'all';
 const ST = { want: 'Chci číst', reading: 'Čtu', done: 'Přečteno' };
@@ -64,7 +65,7 @@ export default {
         <div class="row-btns"><button class="btn sm" data-act="plus" data-id="${b.id}" data-v="10">+10 stran</button><button class="btn sm" data-act="plus" data-id="${b.id}" data-v="25">+25</button><button class="btn sm ghost" data-act="page" data-id="${b.id}">Stránka…</button></div>
       </section>`).join('')}
       ${segTabs([['all', 'Vše'], ['want', 'Chci číst'], ['reading', 'Čtu'], ['done', 'Přečteno']], tab)}
-      <section class="shelf">${list.map(b => `<a class="book" href="#/books/${b.id}">${cover(b)}<div class="book-bar"><i style="width:${pct(b)}%;--c:${b.color}"></i></div><small>${ST[b.status] || ''}</small></a>`).join('')}</section>
+      <section class="shelf">${list.map(b => `<a class="book" href="#/books/${b.id}">${cover(b)}<div class="book-bar"><i style="width:${pct(b)}%;--c:${b.color}"></i></div><small>${ST[b.status] || ''}${db.find('files', f => f.book === b.id) ? ' · ' + icon('file', 11) : ''}</small></a>`).join('')}</section>
       ${list.length ? '' : empty('Nic tady není.')}
       <button class="btn ghost" data-act="new">${icon('plus', 18)} Přidat knihu</button>`;
     root.onclick = e => {
@@ -88,12 +89,25 @@ function detail(root, id, refresh) {
   const b = db.get(id);
   if (!b) { root.innerHTML = empty('Kniha nenalezena.'); return; }
   const tk = b.takeaways || [];
+  const info = bookInfo(b.title);
+  const files = db.filter('files', f => f.book === id).sort((a, c) => (c.added || '').localeCompare(a.added || ''));
   root.innerHTML = `
     <section class="book-hero">${cover(b, 'lg')}
       <div><h2>${esc(b.title)}</h2><p class="muted">${esc(b.author || '')}</p>
         <div class="chips">${Object.entries(ST).map(([k, l]) => `<button class="chip sm ${b.status === k ? 'on' : ''}" data-act="status" data-v="${k}">${l}</button>`).join('')}</div>
         <p class="small muted">${b.started ? `Začato ${fmtDay(b.started)}` : ''}${b.finished ? ` · dočteno ${fmtDay(b.finished)}` : ''}</p>
       </div></section>
+    ${files.length ? `<button class="btn primary big" data-act="read" data-id="${files[0].id}">${icon('book', 18)} Otevřít ${esc(files[0].name.split('.').pop().toUpperCase())}</button>` : ''}
+    ${info ? `<section class="panel">
+      <div class="panel-head"><h3>${icon('note', 18)} O knize</h3></div>
+      <p>${esc(info.summary)}</p>
+      <ul class="ul">${info.ideas.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+    </section>` : ''}
+    <section class="panel">
+      <div class="panel-head"><h3>${icon('file', 18)} Moje kopie</h3><button class="btn sm primary" data-act="upload">${icon('upload', 16)} Nahrát</button></div>
+      ${files.length ? files.map(fileRow).join('') : '<p class="small muted">Nahraj svůj e-book (EPUB, PDF) nebo audioknihu (MP3, M4B), kterou máš koupenou nebo půjčenou. Otevřeš ji pak jedním klepnutím. Soubory nad 1,5 MB vyžadují přihlášení k synchronizaci.</p>'}
+      <p class="small muted">Sehnat knihu: ${shopLinks(b).map(([n, u]) => `<a class="link" href="${u}" target="_blank" rel="noopener">${n}</a>`).join(' · ')}</p>
+    </section>
     <section class="panel">
       <div class="panel-head"><h3>Postup</h3><b>${pct(b)} %</b></div>
       <div class="bar" style="--c:${b.color}"><i style="width:${pct(b)}%"></i></div>
@@ -131,6 +145,9 @@ function detail(root, id, refresh) {
     else if (act === 'tk-del') { db.patch(id, { takeaways: tk.filter((_, i) => i !== Number(btn.dataset.i)) }); refresh(); }
     else if (act === 'rate') { db.patch(id, { rating: Number(btn.dataset.v) }); refresh(); }
     else if (act === 'edit') editBook(cur, refresh);
+    else if (act === 'upload') pickFiles({ book: id }, refresh);
+    else if (act === 'read') { const f = db.get(btn.dataset.id); if (f) openFile(f); }
+    else if (act === 'file-open' || act === 'file-del') { e.stopPropagation(); handleFileAct(act, btn.dataset.id, refresh); }
   };
   void confirmSheet;
 }

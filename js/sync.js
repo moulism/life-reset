@@ -28,7 +28,9 @@ function setStatus(s, err = '') {
   window.dispatchEvent(new CustomEvent('lr:sync', { detail: s }));
 }
 
-export async function initSync() {
+let initP = null;
+export function initSync() { if (!initP) initP = initSyncInner(); return initP; }
+async function initSyncInner() {
   const cfg = window.LR_CONFIG;
   if (!cfg || !cfg.supabaseUrl) return;
   try {
@@ -110,26 +112,78 @@ export async function syncNow() {
 }
 
 // ---- účet ----
+// Přihlášení heslem nebo 6místným kódem z e-mailu. Kód funguje i v aplikaci na ploše iPhonu
+// (odkaz z e-mailu by se otevřel v Safari, které má oddělené úložiště).
 function redirect() { return location.href.split('#')[0]; }
-export async function signIn(email, password) {
-  if (!sb) throw new Error('Synchronizace není dostupná – zkontroluj internet.');
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) throw error;
+const normEmail = e => String(e || '').trim().toLowerCase();
+async function client() {
+  if (!sb && initP) { try { await initP; } catch (e) { /* níže */ } }
+  if (!sb) { initP = null; try { await initSync(); } catch (e) { /* níže */ } } // druhý pokus
+  if (!sb) throw new Error('Synchronizace se nenačetla – zkontroluj internet a zkus to znovu.');
+  return sb;
+}
+export function czErr(e) {
+  const m = (e && (e.message || e.error_description)) || String(e || '');
+  if (/invalid login credentials/i.test(m)) return 'Špatný e-mail nebo heslo. Zkus přihlášení kódem z e-mailu.';
+  if (/email not confirmed/i.test(m)) return 'E-mail ještě není potvrzený – přihlas se kódem z e-mailu.';
+  if (/already registered|already been registered/i.test(m)) return 'Tenhle e-mail už účet má – přihlas se heslem nebo kódem.';
+  if (/token has expired|invalid.*(otp|token)|otp.*(expired|invalid)/i.test(m)) return 'Kód je špatný nebo vypršel. Pošli si nový.';
+  if (/rate limit|too many|security purposes/i.test(m)) return 'Moc pokusů za sebou – počkej minutu a zkus znovu.';
+  if (/password.*(at least|short|weak)/i.test(m)) return 'Heslo je moc krátké (aspoň 6 znaků).';
+  if (/failed to fetch|network/i.test(m)) return 'Nejde se spojit se serverem – jsi online?';
+  return m;
+}
+async function afterLogin() {
   setMeta('lastPull', null); setMeta('lastPullS', null);
   markAllDirty();
   return syncNow();
 }
+export async function signIn(email, password) {
+  const c = await client();
+  const { error } = await c.auth.signInWithPassword({ email: normEmail(email), password });
+  if (error) throw new Error(czErr(error));
+  return afterLogin();
+}
 export async function signUp(email, password) {
-  if (!sb) throw new Error('Synchronizace není dostupná – zkontroluj internet.');
-  const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: redirect() } });
-  if (error) throw error;
-  if (data.session) { markAllDirty(); await syncNow(); return 'in'; }
+  const c = await client();
+  const { data, error } = await c.auth.signUp({ email: normEmail(email), password, options: { emailRedirectTo: redirect() } });
+  if (error) throw new Error(czErr(error));
+  if (data.session) { await afterLogin(); return 'in'; }
   return 'confirm';
 }
-export async function magicLink(email) {
-  if (!sb) throw new Error('Synchronizace není dostupná – zkontroluj internet.');
-  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect() } });
-  if (error) throw error;
+export async function sendCode(email) {
+  const c = await client();
+  const { error } = await c.auth.signInWithOtp({ email: normEmail(email), options: { shouldCreateUser: true, emailRedirectTo: redirect() } });
+  if (error) throw new Error(czErr(error));
+}
+export async function verifyCode(email, code) {
+  const c = await client();
+  let raw = String(code || '').trim();
+  for (let i = 0; i < 3 && /%3F|%26|%3D/i.test(raw); i++) { try { raw = decodeURIComponent(raw); } catch (e) { break; } } // odkaz zabalený Gmailem/Outlookem
+  let res;
+  // vložený odkaz z e-mailu (…/auth/v1/verify?token=…&type=magiclink) → přihlášení přímo tady
+  const m = raw.match(/[?&]token=([^&#\s]+)/);
+  if (m) {
+    const tm = raw.match(/[?&]type=([a-z_]+)/);
+    const token_hash = decodeURIComponent(m[1]);
+    const types = [tm ? tm[1] : 'magiclink', 'magiclink', 'email', 'signup', 'recovery'];
+    for (const type of [...new Set(types)]) {
+      res = await c.auth.verifyOtp({ token_hash, type });
+      if (!res.error) break;
+    }
+  } else {
+    const token = raw.replace(/\D/g, '');
+    res = await c.auth.verifyOtp({ email: normEmail(email), token, type: 'email' });
+    if (res.error) res = await c.auth.verifyOtp({ email: normEmail(email), token, type: 'signup' });
+  }
+  if (res.error) throw new Error(czErr(res.error));
+  return afterLogin();
+}
+export const magicLink = sendCode;
+export async function setPassword(password) {
+  const c = await client();
+  const { error } = await c.auth.updateUser({ password });
+  if (error) throw new Error(czErr(error));
 }
 export async function signOut() {
   if (!sb) return;

@@ -3,7 +3,8 @@ import { db, setProfile } from '../store.js';
 import { esc, icon, toast, $ } from '../ui.js';
 import { ROUTINE_SUGGEST, HUSTLE_SUGGEST, GYM_TEMPLATES, SCHOOLS, CAL_CATS } from '../data/defaults.js';
 import { BOOKS } from '../data/books.js';
-import { sync, signIn } from '../sync.js';
+import { sync } from '../sync.js';
+import { mountAuth } from '../auth-ui.js';
 
 const STEPS = ['start', 'name', 'why', 'morning', 'day', 'evening', 'hustles', 'targets', 'done'];
 let step = 0;
@@ -31,13 +32,7 @@ export default {
           <p>Osobní systém pro rutinu, kalendář, jídlo, trénink, peníze a projekty. Každý splněný den = XP, levely a série.</p>
         </div>
         <button class="btn primary big" data-act="next">Vytvořit profil ${icon('right', 18)}</button>
-        <details class="ob-login"><summary>Už mám účet – stáhnout data z cloudu</summary>
-          <form class="form" data-form="login">
-            <div class="field"><label for="obE">E-mail</label><input id="obE" name="email" type="email" autocomplete="email" required></div>
-            <div class="field"><label for="obP">Heslo</label><input id="obP" name="password" type="password" autocomplete="current-password" required></div>
-            <button class="btn" type="submit">Přihlásit a synchronizovat</button>
-          </form>
-        </details>`;
+        <details class="ob-login"><summary>Už mám účet – stáhnout data z cloudu</summary><div id="obAuth"></div></details>`;
     } else if (k === 'name') {
       body = `<h2>Kdo jsi?</h2><p class="muted">Všechno jde později změnit v Nastavení.</p>
         <div class="form">
@@ -103,19 +98,13 @@ export default {
       if (f.dataset.form === 'custom') {
         const v = f.v.value.trim();
         if (v) { st.custom[k].push(v); st.routine[k].push(v); refresh(); setTimeout(() => { const i = $('.inline-add input'); i && i.focus(); }, 30); }
-      } else if (f.dataset.form === 'login') {
-        const btn = f.querySelector('button');
-        btn.disabled = true; btn.textContent = 'Přihlašuji…';
-        try {
-          await signIn(f.email.value.trim(), f.password.value);
-          if (db.one('profile')) { toast('Data stažena. Vítej zpět.'); go('home'); }
-          else { toast('Přihlášeno – v cloudu zatím žádný profil, vytvoř ho.'); step = 1; refresh(); }
-        } catch (err) {
-          toast(esc(err.message || 'Přihlášení selhalo'), 'warn long');
-          btn.disabled = false; btn.textContent = 'Přihlásit a synchronizovat';
-        }
       }
     };
+    const ab = root.querySelector('#obAuth');
+    if (ab) mountAuth(ab, { onDone: () => {
+      if (db.one('profile')) { go('home'); }
+      else { toast('Přihlášeno – v cloudu zatím žádný profil, vytvoř ho.'); step = 1; refresh(); }
+    } });
     void sync;
   }
 };

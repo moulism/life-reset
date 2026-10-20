@@ -1,6 +1,7 @@
 // Nastavení – profil, rutina, kategorie, synchronizace, záloha.
 import { db, profile, setProfile, exportAll, importAll, wipe, flush } from '../store.js';
-import { sync, syncNow, signIn, signUp, magicLink, signOut } from '../sync.js';
+import { sync, syncNow, signOut, setPassword } from '../sync.js';
+import { mountAuth } from '../auth-ui.js';
 import { esc, icon, openForm, toast, confirmSheet, download, DAYS_SHORT, SWATCHES, sheet, bindChips, fieldHTML, readForm, today } from '../ui.js';
 import { cats, finOut, finIn, exportICS } from '../common.js';
 import { CAL_CATS, FIN_OUT, FIN_IN, ROUTINE_SUGGEST, SCHOOLS } from '../data/defaults.js';
@@ -184,50 +185,39 @@ function syncView(root, refresh) {
         ${sync.error ? `<p class="small red">${esc(sync.error)}</p>` : ''}
         <div class="row-btns"><button class="btn ghost" data-act="out">Odhlásit</button><button class="btn primary" data-act="now">${icon('sync', 18)} Synchronizovat teď</button></div>
       </section>
-      <p class="small muted">Všechno se ukládá nejdřív v telefonu (funguje i offline) a do minuty se to pošle do cloudu. Na jiném zařízení se stačí přihlásit stejným účtem.</p>`;
+      <section class="panel">
+        <div class="panel-head"><h3>${icon('lock', 18)} Heslo</h3></div>
+        <p class="small muted">Nastav si heslo, ať se můžeš kdykoli přihlásit i bez kódu. Přihlášení zůstává uložené, dokud se neodhlásíš.</p>
+        <form class="form" data-form="pw">
+          <div class="field"><label for="pw1">Nové heslo</label><input id="pw1" name="pw" type="password" autocomplete="new-password" minlength="6"></div>
+          <button class="btn" type="submit">Uložit heslo</button>
+        </form>
+      </section>
+      <p class="small muted">Všechno se ukládá nejdřív v telefonu (funguje i offline) a do minuty se to pošle do cloudu. Na jiném zařízení – i v aplikaci na ploše – se přihlas stejným e-mailem (kódem nebo heslem).</p>`;
   } else {
     root.innerHTML = `
       <section class="panel">
-        <p>Přihlas se a data se budou synchronizovat mezi telefonem, počítačem a VS Code verzí. Dokumenty nad 1,5 MB jde nahrát jen po přihlášení.</p>
-        <form class="form" data-form="auth">
-          <div class="field"><label for="sE">E-mail</label><input id="sE" name="email" type="email" autocomplete="email" required value="${esc((profile() || {}).email || '')}"></div>
-          <div class="field"><label for="sP">Heslo</label><input id="sP" name="password" type="password" autocomplete="current-password" minlength="6"></div>
-          <div class="row-btns"><button class="btn ghost" type="button" data-act="up">Vytvořit účet</button><button class="btn primary" type="submit">Přihlásit</button></div>
-          <button class="link" type="button" data-act="magic">Poslat přihlašovací odkaz na e-mail</button>
-        </form>
+        <p>Přihlas se a data se budou synchronizovat mezi telefonem, aplikací na ploše a počítačem. Dokumenty a knihy nad 1,5 MB jde nahrát jen po přihlášení.</p>
+        <div id="authBox"></div>
         <p class="small muted">Stav: ${esc(label)}${sync.error ? ' · ' + esc(sync.error) : ''}${cfg.supabaseUrl ? '' : ' · chybí config.js'}</p>
       </section>`;
+    mountAuth(root.querySelector('#authBox'), { email: (profile() || {}).email || '', onDone: e => { setProfile({ email: e }); refresh(); } });
   }
-  const busy = (b, on) => { if (b) { b.disabled = on; } };
   root.onsubmit = async e => {
     e.preventDefault();
-    const f = e.target, btn = f.querySelector('[type=submit]');
-    if (!f.password.value) { toast('Zadej heslo, nebo použij odkaz na e-mail', 'warn'); return; }
-    busy(btn, true);
-    try { await signIn(f.email.value.trim(), f.password.value); setProfile({ email: f.email.value.trim() }); toast('Přihlášeno a synchronizováno'); refresh(); }
-    catch (err) { toast(esc(err.message), 'warn long'); busy(btn, false); }
+    if (e.target.dataset.form !== 'pw') return;
+    const pw = e.target.pw.value;
+    if (pw.length < 6) { toast('Aspoň 6 znaků', 'warn'); return; }
+    try { await setPassword(pw); e.target.reset(); toast('Heslo uloženo'); } catch (err) { toast(esc(err.message), 'warn long'); }
   };
   root.onclick = async e => {
     const b = e.target.closest('[data-act]');
     if (!b) return;
-    const f = root.querySelector('form');
     const act = b.dataset.act;
     try {
-      if (act === 'now') { busy(b, true); await syncNow(); toast(sync.status === 'error' ? 'Chyba: ' + esc(sync.error) : 'Hotovo'); refresh(); }
+      if (act === 'now') { b.disabled = true; await syncNow(); toast(sync.status === 'error' ? 'Chyba: ' + esc(sync.error) : 'Hotovo'); refresh(); }
       else if (act === 'out') { if (await confirmSheet('Odhlásit? Data v tomto zařízení zůstanou.', 'Odhlásit')) { await signOut(); refresh(); } }
-      else if (act === 'up') {
-        if (!f.email.value || f.password.value.length < 6) { toast('E-mail a heslo (min. 6 znaků)', 'warn'); return; }
-        busy(b, true);
-        const r = await signUp(f.email.value.trim(), f.password.value);
-        setProfile({ email: f.email.value.trim() });
-        toast(r === 'in' ? 'Účet vytvořen, synchronizuji' : 'Potvrď e-mail – poslal jsem odkaz. Pak se tady přihlas.', 'long');
-        refresh();
-      } else if (act === 'magic') {
-        if (!f.email.value) { toast('Zadej e-mail', 'warn'); return; }
-        await magicLink(f.email.value.trim());
-        toast('Odkaz je v e-mailu. Otevři ho v tomhle prohlížeči.', 'long');
-      }
-    } catch (err) { toast(esc(err.message), 'warn long'); busy(b, false); }
+    } catch (err) { toast(esc(err.message), 'warn long'); b.disabled = false; }
   };
 }
 

@@ -651,3 +651,13 @@ select { -webkit-appearance: none; appearance: none; background-image: url("data
 .inline-add.big input { flex: 1 1 100%; }
 .inline-add.big select { flex: 1 1 auto; }
 @media (max-width: 400px) { .top-title { font-size: 18px; letter-spacing: .05em; } }
+
+/* přihlášení */
+.auth-seg { margin-top: 12px; }
+.auth-form { display: block; }
+.auth-form .btn.big { margin: 4px 0 10px; }
+.otp { text-align: center; font: 600 28px var(--f-head) !important; letter-spacing: .5em; }
+.pw { position: relative; }
+.pw input { padding-right: 46px !important; }
+.pw .icon-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+.book-hero + .btn.big { margin-bottom: 14px; }

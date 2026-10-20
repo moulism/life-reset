@@ -1,8 +1,8 @@
 // Service worker – aplikace funguje offline. Při každé nové verzi zvyš VERSION.
-const VERSION = 'lr-v1.0.0';
+const VERSION = 'lr-v1.1.0';
 const SHELL = [
   './', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css',
-  'js/app.js', 'js/store.js', 'js/sync.js', 'js/game.js', 'js/ui.js', 'js/common.js',
+  'js/app.js', 'js/auth-ui.js', 'js/store.js', 'js/sync.js', 'js/game.js', 'js/ui.js', 'js/common.js',
   'js/data/defaults.js', 'js/data/books.js', 'js/data/mealplan.js',
   'js/pages/home.js', 'js/pages/calendar.js', 'js/pages/tasks.js', 'js/pages/food.js', 'js/pages/map.js',
   'js/pages/diary.js', 'js/pages/hustles.js', 'js/pages/school.js', 'js/pages/archive.js', 'js/pages/gym.js',

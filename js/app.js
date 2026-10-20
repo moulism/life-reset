@@ -133,5 +133,13 @@ scheduleReminders();
 setInterval(scheduleReminders, 30 * 60000);
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const hadSW = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
+  // nová verze aplikace → jednou obnovit, ať telefon hned běží na nejnovějším kódu
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadSW || reloaded || sheetOpen()) return;
+    reloaded = true;
+    location.reload();
+  });
 }

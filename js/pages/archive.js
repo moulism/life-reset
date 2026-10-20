@@ -49,7 +49,7 @@ export default {
           ? `<a class="row" href="${s.link(x)}"><span class="ico">${icon(s.icon, 18)}</span><div class="row-main"><p class="row-title">${esc(s.title(x))}</p><p class="row-meta"><span>${s.name}</span></p></div></a>`
           : `<button class="row" data-act="file-open" data-id="${x.id}"><span class="ico">${icon(s.icon, 18)}</span><div class="row-main"><p class="row-title">${esc(s.title(x))}</p><p class="row-meta"><span>${s.name}</span></p></div></button>`).join('') || '<p class="muted">Nic nenalezeno.</p>'}</section>`;
     }
-    const loose = db.filter('files', f => !f.folder && !f.subject && !f.hustle).sort((a, b) => (b.added || '').localeCompare(a.added || ''));
+    const loose = db.filter('files', f => !f.folder && !f.subject && !f.hustle && !f.book).sort((a, b) => (b.added || '').localeCompare(a.added || ''));
     root.innerHTML = `
       <div class="search big"><span>${icon('search', 20)}</span><input id="aq" placeholder="Hledat ve všem – poznámky, deník, soubory, úkoly…" value="${esc(q)}" autocomplete="off"></div>
       ${results}
@@ -68,7 +68,7 @@ export default {
       <section class="panel">
         <div class="panel-head"><h3>Všechny dokumenty</h3><small class="muted">${db.all('files').length}</small></div>
         ${db.all('files').slice().sort((a, b) => (b.added || '').localeCompare(a.added || '')).slice(0, 30).map(f => {
-          const where = f.subject ? (db.get(f.subject) || {}).name : f.hustle ? (db.get(f.hustle) || {}).name : f.folder ? (db.get(f.folder) || {}).name : 'Volné';
+          const where = f.subject ? (db.get(f.subject) || {}).name : f.hustle ? (db.get(f.hustle) || {}).name : f.folder ? (db.get(f.folder) || {}).name : f.book ? (db.get(f.book) || {}).title : 'Volné';
           return fileRow(f).replace('<p class="row-meta">', `<p class="row-meta"><span>${esc(where || '')}</span>`);
         }).join('') || '<p class="muted">Zatím nic.</p>'}
       </section>

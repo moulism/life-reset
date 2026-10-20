@@ -215,13 +215,16 @@ export function pickFiles(extra = {}, after = () => {}) {
   inp.click();
 }
 export async function openFile(f) {
+  // okno otevřít hned při klepnutí (iPhone jinak po čekání na odkaz okno zablokuje)
+  const w = window.open('', '_blank');
+  const go = url => { if (w && !w.closed) w.location.href = url; else location.href = url; };
   try {
-    if (f.path) { const url = await fileUrl(f.path); window.open(url, '_blank'); }
+    if (f.path) go(await fileUrl(f.path));
     else if (f.dataUrl) {
       const blob = await (await fetch(f.dataUrl)).blob();
-      window.open(URL.createObjectURL(blob), '_blank');
+      go(URL.createObjectURL(blob));
     }
-  } catch (e) { toast('Soubor nejde otevřít – jsi přihlášený a online?', 'warn'); }
+  } catch (e) { if (w) w.close(); toast('Soubor nejde otevřít – jsi přihlášený a online?', 'warn'); }
 }
 export async function deleteFile(f) {
   if (f.path) { try { await removeFile(f.path); } catch (e) { /* zůstane v úložišti */ } }

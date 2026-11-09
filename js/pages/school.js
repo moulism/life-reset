@@ -85,7 +85,7 @@ function detail(root, id, refresh) {
     else if (act === 'note-new') { const nid = newNote({ subject: id, title: `${s.name} – ${relDay(today()).toLowerCase()}` }); location.hash = '#/notes/' + nid; }
     else if (act === 'upload') pickFiles({ subject: id }, refresh);
     else if (act === 'file-open' || act === 'file-del') handleFileAct(act, b.dataset.id, refresh);
-    else if (act === 'task-new') editTask({ subject: id, cat: (s.school || '').startsWith('UNYP') ? 'unyp' : 'skola' }, refresh);
+    else if (act === 'task-new') editTask({ subject: id, cat: 'skola' }, refresh);
     else if (act === 'task-toggle') { e.stopPropagation(); toggleTask(b.dataset.id); refresh(); }
     else if (act === 'task-edit') editTask(db.get(b.dataset.id), refresh);
   };

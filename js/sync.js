@@ -1,5 +1,5 @@
 // Synchronizace se Supabase (tabulka lr_items + bucket lr-files).
-import { exportDirty, markClean, applyRemote, getMeta, setMeta, markAllDirty, onChange } from './store.js';
+import { exportDirty, markClean, applyRemote, getMeta, setMeta, markAllDirty, onChange, useAccount } from './store.js';
 
 const CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
 let sb = null;
@@ -42,10 +42,12 @@ async function initSyncInner() {
   }
   const { data } = await sb.auth.getSession();
   sync.user = data.session ? data.session.user : null;
+  if (useAccount(sync.user ? sync.user.id : null)) window.dispatchEvent(new CustomEvent('lr:account'));
   setStatus(sync.user ? 'idle' : 'off');
   sb.auth.onAuthStateChange((ev, session) => {
     const before = sync.user;
     sync.user = session ? session.user : null;
+    if (useAccount(sync.user ? sync.user.id : null)) window.dispatchEvent(new CustomEvent('lr:account'));
     if (!sync.user) { setStatus('off'); return; }
     if (!before || ev === 'SIGNED_IN') syncNow();
   });
@@ -134,6 +136,8 @@ export function czErr(e) {
   return m;
 }
 async function afterLogin() {
+  const { data } = await sb.auth.getSession();
+  if (data.session) { sync.user = data.session.user; useAccount(sync.user.id); }
   setMeta('lastPull', null); setMeta('lastPullS', null);
   markAllDirty();
   return syncNow();
@@ -187,12 +191,16 @@ export async function setPassword(password) {
 }
 export async function signOut() {
   if (!sb) return;
+  await syncNow().catch(() => {});
   await sb.auth.signOut();
-  setMeta('lastPull', null); setMeta('lastPullS', null);
+  sync.user = null;
+  useAccount(null);
   setStatus('off');
+  window.dispatchEvent(new CustomEvent('lr:account'));
 }
 
 // ---- soubory ----
+export const ready = () => initP || initSync();
 export function canUpload() { return !!(sb && sync.user); }
 export async function uploadFile(file) {
   const safe = file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.\-]+/g, '_');

@@ -1,5 +1,6 @@
 // Life Reset – start aplikace, router, horní lišta a navigace.
-import { profile } from './store.js';
+import { profile, currentUid } from './store.js';
+import { has } from './mods.js';
 import { initSync, sync } from './sync.js';
 import { applyTheme, checkUnlocks, stats } from './game.js';
 import { $, icon, esc, sheetOpen } from './ui.js';
@@ -21,10 +22,19 @@ import notes from './pages/notes.js';
 import shop from './pages/shop.js';
 import settings from './pages/settings.js';
 import onboarding from './pages/onboarding.js';
+import week from './pages/week.js';
+import welcome from './pages/welcome.js';
 
-const ROUTES = { home, calendar, tasks, food, map, diary, hustles, school, archive, gym, finance, books, notes, shop, settings, onboarding };
-const TABS = [['home', 'Domů', 'home'], ['calendar', 'Kalendář', 'calendar'], ['tasks', 'Úkoly', 'tasks'], ['food', 'Jídlo', 'food'], ['map', 'Mapa', 'grid']];
-const TAB_OF = { shop: 'food', gym: 'map', diary: 'map', hustles: 'map', school: 'map', archive: 'map', finance: 'map', books: 'map', notes: 'map', settings: 'map' };
+const ROUTES = { home, week, calendar, tasks, food, map, diary, hustles, school, archive, gym, finance, books, notes, shop, settings, onboarding, welcome };
+// spodní lišta: Dnes, Týden, 2 nejdůležitější zapnuté moduly, Menu
+const TAB_CANDIDATES = [['tasks', 'Úkoly', 'tasks'], ['finance', 'Peníze', 'wallet'], ['calendar', 'Kalendář', 'calendar'], ['notes', 'Poznámky', 'note'], ['gym', 'Trénink', 'gym'], ['food', 'Jídlo', 'food'], ['shop', 'Nákupy', 'cart']];
+function tabs() {
+  const t = [['home', 'Dnes', 'home']];
+  if (has('week')) t.push(['week', 'Týden', 'clock']);
+  const pick = TAB_CANDIDATES.filter(([k]) => has(k)).slice(0, t.length === 2 ? 2 : 3);
+  return [...t, ...pick, ['map', 'Menu', 'grid']];
+}
+const NO_CHROME = ['onboarding', 'welcome'];
 
 let current = { name: '', args: [] };
 let prevName = '';
@@ -41,8 +51,9 @@ function parseHash() {
 function render(keepScroll = false) {
   const p = profile();
   let { name, args } = parseHash();
-  if (!p && name !== 'onboarding') { location.replace('#/onboarding'); return; }
-  if (p && name === 'onboarding') { location.replace('#/home'); return; }
+  if (!currentUid()) { if (name !== 'welcome') { location.replace('#/welcome'); return; } }
+  else if (!p || !p.v2) { if (name !== 'onboarding') { location.replace('#/onboarding'); return; } }
+  else if (NO_CHROME.includes(name)) { location.replace('#/home'); return; }
   const mod = ROUTES[name];
   const view = $('#view');
   const y = window.scrollY;
@@ -72,8 +83,8 @@ function syncDot() {
 
 function renderTop(mod, name, args) {
   const top = $('#top');
-  if (name === 'onboarding') { top.innerHTML = ''; return; }
-  const isTab = TABS.some(t => t[0] === name);
+  if (NO_CHROME.includes(name)) { top.innerHTML = ''; return; }
+  const isTab = tabs().some(t => t[0] === name);
   const sub = args.length > 0;
   const back = sub ? `#/${name}` : (isTab ? '' : '#/map');
   const s = stats();
@@ -81,24 +92,25 @@ function renderTop(mod, name, args) {
   top.innerHTML = `
     ${back ? `<a class="icon-btn back" href="${back}" aria-label="Zpět">${icon('left')}</a>` : `<a class="logo" href="#/home" aria-label="Domů"><span>LR</span></a>`}
     <h1 class="top-title">${esc(name === 'home' ? 'Life Reset' : title)}</h1>
-    <a class="lvl-chip" href="#/map" title="Level ${s.level} · ${esc(s.rank)}"><b>${s.level}</b><span>${s.streak}${icon('flame', 13)}</span></a>
+    ${has('game') ? `<a class="lvl-chip" href="#/map" title="Level ${s.level} · ${esc(s.rank)}"><b>${s.level}</b><span>${s.streak}${icon('flame', 13)}</span></a>` : ''}
     ${syncDot()}`;
 }
 
 function renderTabs(name) {
-  const tabs = $('#tabs');
-  if (name === 'onboarding') { tabs.innerHTML = ''; tabs.hidden = true; return; }
-  tabs.hidden = false;
-  const active = TABS.some(t => t[0] === name) ? name : (TAB_OF[name] || 'map');
-  tabs.innerHTML = TABS.map(([k, l, ic]) => `<a href="#/${k}" class="${k === active ? 'on' : ''}" ${k === active ? 'aria-current="page"' : ''}>${icon(ic, 22)}<span>${l}</span></a>`).join('');
+  const tabsEl = $('#tabs');
+  if (NO_CHROME.includes(name)) { tabsEl.innerHTML = ''; tabsEl.hidden = true; return; }
+  tabsEl.hidden = false;
+  const T = tabs();
+  const active = T.some(t => t[0] === name) ? name : 'map';
+  tabsEl.innerHTML = T.map(([k, l, ic]) => `<a href="#/${k}" class="${k === active ? 'on' : ''}" ${k === active ? 'aria-current="page"' : ''}>${icon(ic, 22)}<span>${l}</span></a>`).join('');
 }
 
 // ---------- boot ----------
 function boot() {
   const p = profile();
   applyTheme(p);
-  const call = (p && p.callName) || 'Master M';
-  $('#bootWelcome').textContent = `Welcome, ${call}`;
+  const call = (p && (p.callName || p.name)) || '';
+  $('#bootWelcome').textContent = call ? `Welcome, ${call}` : 'Life Reset';
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const bootEl = $('#boot');
   const finish = () => {
@@ -110,10 +122,14 @@ function boot() {
     setTimeout(() => { if (profile()) checkUnlocks(); }, 900);
   };
   bootEl.addEventListener('click', finish);
-  setTimeout(finish, reduce ? 600 : 2600);
+  const quick = reduce || !p || p.style === 'clean';
+  if (quick) bootEl.classList.add('quick');
+  setTimeout(finish, quick ? 350 : 2600);
 }
 
 window.addEventListener('hashchange', () => render());
+// přihlášení / odhlášení / jiný účet → jiná data v zařízení
+window.addEventListener('lr:account', () => { if (sheetOpen()) return; applyTheme(); render(); scheduleReminders(); });
 window.addEventListener('lr:sync', () => {
   const dot = document.querySelector('.sync-dot');
   if (dot) dot.outerHTML = syncDot();

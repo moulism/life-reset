@@ -4,9 +4,11 @@ import { sync, syncNow, signOut, setPassword } from '../sync.js';
 import { mountAuth } from '../auth-ui.js';
 import { esc, icon, openForm, toast, confirmSheet, download, DAYS_SHORT, SWATCHES, sheet, bindChips, fieldHTML, readForm, today } from '../ui.js';
 import { cats, finOut, finIn, exportICS } from '../common.js';
-import { CAL_CATS, FIN_OUT, FIN_IN, ROUTINE_SUGGEST, SCHOOLS } from '../data/defaults.js';
+import { CAL_CATS, FIN_OUT, FIN_IN, ROUTINE_SUGGEST, MODULES, CLEAN_ACCENTS } from '../data/defaults.js';
+import { mods } from '../mods.js';
+import { applyTheme, UNLOCKS, unlocked } from '../game.js';
 
-const SUB = { profile: 'Profil & cíle', routines: 'Rutina', cats: 'Kategorie kalendáře', fincats: 'Kategorie financí', sync: 'Synchronizace', notify: 'Připomínky', data: 'Záloha & data' };
+const SUB = { profile: 'Profil & cíle', look: 'Vzhled', modules: 'Moduly', routines: 'Návyky', cats: 'Kategorie kalendáře', fincats: 'Kategorie financí', sync: 'Účet & synchronizace', notify: 'Připomínky', data: 'Záloha & data' };
 const SLOTS = [['morning', 'Ráno'], ['day', 'Přes den'], ['evening', 'Večer']];
 
 export default {
@@ -14,6 +16,8 @@ export default {
   render(root, args, { refresh, go }) {
     const s = args[0];
     if (s === 'profile') return profileView(root, refresh);
+    if (s === 'look') return lookView(root, refresh);
+    if (s === 'modules') return modulesView(root, refresh);
     if (s === 'routines') return routinesView(root, refresh);
     if (s === 'cats') return catsView(root, refresh, 'cats');
     if (s === 'fincats') return finCatsView(root, refresh);
@@ -22,17 +26,18 @@ export default {
     if (s === 'data') return dataView(root, refresh, go);
     const p = profile();
     const items = [
-      ['profile', 'settings', `${p.name || ''} · „${p.callName || ''}“`],
+      ['sync', 'lock', sync.user ? sync.user.email : 'nepřihlášen'],
+      ['profile', 'settings', `${p.name || ''}${p.callName ? ` · „${p.callName}“` : ''}`],
+      ['look', 'eye', (p.style || 'hud') === 'hud' ? 'JARVIS' : 'Čistý'],
+      ['modules', 'grid', `${mods().length} zapnutých`],
       ['routines', 'bolt', `${db.all('routine').length} bodů`],
       ['cats', 'calendar', `${cats().length} barev`],
       ['fincats', 'wallet', `${finOut().length + finIn().length} kategorií`],
-      ['sync', 'sync', sync.user ? `přihlášen · ${sync.user.email}` : 'nepřihlášen – data jen v tomto zařízení'],
       ['notify', 'bell', 'Notification' in window ? ({ granted: 'zapnuté', denied: 'zablokované', default: 'vypnuté' }[Notification.permission]) : 'nepodporováno'],
       ['data', 'download', 'export, import, kalendář .ics'],
     ];
     root.innerHTML = `
       <section class="panel">${items.map(([k, ic, sub]) => `<a class="row" href="#/settings/${k}"><span class="ico">${icon(ic, 18)}</span><div class="row-main"><p class="row-title">${SUB[k]}</p><p class="row-meta"><span>${esc(sub)}</span></p></div>${icon('right', 18)}</a>`).join('')}</section>
-      <a class="row panel" href="#/map"><span class="ico">${icon('star', 18)}</span><div class="row-main"><p class="row-title">Vzhled, levely a odznaky</p><p class="row-meta"><span>Mapa systému</span></p></div>${icon('right', 18)}</a>
       <p class="tiny-actions muted">Life Reset · ${db.count()} záznamů · <span class="sync-txt">${esc(sync.status)}</span></p>`;
   }
 };
@@ -43,8 +48,7 @@ function profileView(root, refresh) {
   const t = { kcal: 3000, protein: 160, water: 3000, gym: 4, ...(p.targets || {}) };
   const fields = [
     { k: 'name', label: 'Jméno' },
-    { k: 'callName', label: 'Uvítání při spuštění', hint: '„Welcome, …“' },
-    { k: 'sir', label: 'Oslovení', hint: '„Dobré ráno, …“' },
+    { k: 'callName', label: 'Uvítání při spuštění (volitelné)', hint: '„Welcome, …“' },
     { k: 'why', label: 'Moje hlavní „proč“', type: 'textarea', rows: 2 },
     { k: 'kcal', label: 'Kalorie / den', type: 'number', half: true },
     { k: 'protein', label: 'Bílkoviny (g)', type: 'number', half: true },
@@ -52,13 +56,13 @@ function profileView(root, refresh) {
     { k: 'gym', label: 'Tréninků / týden', type: 'number', half: true },
     { k: 'schools', label: 'Školy (každá na nový řádek)', type: 'textarea', rows: 3 },
   ];
-  const values = { ...p, ...t, schools: (p.schools || SCHOOLS).join('\n') };
+  const values = { ...p, ...t, schools: (p.schools || []).join('\n') };
   root.innerHTML = `<form class="form panel">${fields.map(f => fieldHTML(f, values[f.k])).join('')}<div class="row-btns"><button class="btn primary">Uložit</button></div></form>`;
   root.onsubmit = e => {
     e.preventDefault();
     const v = readForm(root, fields);
     setProfile({
-      name: v.name, callName: v.callName || 'Master M', sir: v.sir || 'pane', why: v.why,
+      name: v.name, callName: v.callName, why: v.why,
       targets: { ...t, kcal: v.kcal || t.kcal, protein: v.protein || t.protein, water: v.water || t.water, gym: v.gym || t.gym },
       schools: v.schools.split('\n').map(x => x.trim()).filter(Boolean),
     });
@@ -186,8 +190,8 @@ function syncView(root, refresh) {
         <div class="row-btns"><button class="btn ghost" data-act="out">Odhlásit</button><button class="btn primary" data-act="now">${icon('sync', 18)} Synchronizovat teď</button></div>
       </section>
       <section class="panel">
-        <div class="panel-head"><h3>${icon('lock', 18)} Heslo</h3></div>
-        <p class="small muted">Nastav si heslo, ať se můžeš kdykoli přihlásit i bez kódu. Přihlášení zůstává uložené, dokud se neodhlásíš.</p>
+        <div class="panel-head"><h3>${icon('lock', 18)} Změnit heslo</h3></div>
+        <p class="small muted">Přihlášení zůstává uložené, dokud se neodhlásíš.</p>
         <form class="form" data-form="pw">
           <div class="field"><label for="pw1">Nové heslo</label><input id="pw1" name="pw" type="password" autocomplete="new-password" minlength="6"></div>
           <button class="btn" type="submit">Uložit heslo</button>
@@ -216,7 +220,7 @@ function syncView(root, refresh) {
     const act = b.dataset.act;
     try {
       if (act === 'now') { b.disabled = true; await syncNow(); toast(sync.status === 'error' ? 'Chyba: ' + esc(sync.error) : 'Hotovo'); refresh(); }
-      else if (act === 'out') { if (await confirmSheet('Odhlásit? Data v tomto zařízení zůstanou.', 'Odhlásit')) { await signOut(); refresh(); } }
+      else if (act === 'out') { if (await confirmSheet('Odhlásit? Tvoje data zůstanou v cloudu a po přihlášení se vrátí.', 'Odhlásit')) { await signOut(); location.hash = '#/welcome'; } }
     } catch (err) { toast(esc(err.message), 'warn long'); b.disabled = false; }
   };
 }
@@ -242,7 +246,7 @@ function notifyView(root, refresh) {
     if (b.dataset.act === 'test') {
       const reg = await navigator.serviceWorker.getRegistration();
       const p = profile();
-      const opts = { body: `Systém připraven, ${p.sir || 'pane'}.`, icon: 'icons/icon-192.png' };
+      const opts = { body: `Upozornění fungují${p.name ? ', ' + p.name : ''}.`, icon: 'icons/icon-192.png' };
       if (reg) reg.showNotification('Life Reset', opts); else new Notification('Life Reset', opts);
     }
   };
@@ -283,10 +287,55 @@ function dataView(root, refresh, go) {
       if (await confirmSheet('Opravdu vymazat všechna data v tomto zařízení?', 'Vymazat')) {
         if (sync.user) await signOut();
         wipe(); flush();
-        location.hash = '#/onboarding';
+        location.hash = '#/welcome';
         location.reload();
       }
     }
   };
   void go; void bindChips;
+}
+
+// ---------- vzhled ----------
+function lookView(root, refresh) {
+  const p = profile();
+  const style = p.style || 'hud';
+  const un = unlocked();
+  const themes = UNLOCKS.filter(u => u.kind === 'theme');
+  root.innerHTML = `
+    <section class="panel">
+      <div class="style-pick">
+        <button class="style-card sc-hud ${style === 'hud' ? 'on' : ''}" data-act="style" data-v="hud"><span class="sc-prev"><i></i><i></i><i></i></span><b>JARVIS</b><small>Tmavý HUD, záře</small></button>
+        <button class="style-card sc-clean ${style === 'clean' ? 'on' : ''}" data-act="style" data-v="clean"><span class="sc-prev"><i></i><i></i><i></i></span><b>Čistý</b><small>Jednoduchý</small></button>
+      </div>
+    </section>
+    ${style === 'clean' ? `<section class="panel">
+      <div class="field"><label>Barva</label><div class="chips">${CLEAN_ACCENTS.map(a => `<button class="chip ${(p.accent || 'blue') === a.id ? 'on' : ''}" data-act="accent" data-v="${a.id}" style="--c:${a.color}"><i class="dot"></i>${esc(a.name)}</button>`).join('')}</div></div>
+      <div class="field"><label>Režim</label><div class="chips">${[['auto', 'Podle telefonu'], ['light', 'Světlý'], ['dark', 'Tmavý']].map(([v, l]) => `<button class="chip ${(p.mode || 'auto') === v ? 'on' : ''}" data-act="mode" data-v="${v}">${l}</button>`).join('')}</div></div>
+    </section>` : `<section class="panel">
+      <div class="panel-head"><h3>Barvy</h3><small class="muted">odemykáš levely a sériemi</small></div>
+      <div class="theme-grid">${themes.map(t => { const ok = un.includes(t.id); const v = t.id.replace('theme-', ''); return `<button class="theme-tile th-${v} ${(p.theme || 'arc') === v ? 'on' : ''} ${ok ? '' : 'locked'}" data-act="theme" data-v="${v}"><i class="th-sw"></i><b>${esc(t.name)}</b><small>${ok ? ((p.theme || 'arc') === v ? 'aktivní' : 'použít') : `${icon('lock', 12)} ${esc(t.desc)}`}</small></button>`; }).join('')}</div>
+    </section>`}`;
+  root.onclick = e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const a = b.dataset.act, v = b.dataset.v;
+    if (a === 'theme' && b.classList.contains('locked')) { toast('Tohle je ještě zamčené.'); return; }
+    setProfile({ [a]: v });
+    applyTheme();
+    refresh();
+  };
+}
+
+// ---------- moduly ----------
+function modulesView(root, refresh) {
+  const on = mods();
+  root.innerHTML = `<p class="lead">Vypnutý modul zmizí z menu a z Dnes. Data v něm zůstanou.</p>
+    <section class="panel">${MODULES.map(m => `<button class="rt ${on.includes(m.id) ? 'on' : ''}" data-act="mod" data-v="${m.id}" style="--c:${m.c}"><span class="tick">${icon('check', 14)}</span><span><b>${icon(m.ic, 15)} ${esc(m.name)}</b><small>${esc(m.desc)}</small></span></button>`).join('')}</section>`;
+  root.onclick = e => {
+    const b = e.target.closest('[data-act="mod"]');
+    if (!b) return;
+    const v = b.dataset.v;
+    setProfile({ modules: on.includes(v) ? on.filter(x => x !== v) : [...on, v] });
+    refresh();
+  };
 }

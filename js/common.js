@@ -4,6 +4,7 @@ import { award, revoke } from './game.js';
 import { openForm, esc, icon, today, relDay, toast, download, money, fmtDay, parse, iso, addDays, diffDays } from './ui.js';
 import { CAL_CATS, FIN_OUT, FIN_IN } from './data/defaults.js';
 import { canUpload, uploadFile, fileUrl, removeFile } from './sync.js';
+import { blocksOn, area as wArea } from './week-core.js';
 
 export const cats = () => (profile() && profile().cats) || CAL_CATS;
 export const cat = id => cats().find(c => c.id === id) || { id: '', name: 'Bez kategorie', color: '#5C6E7C' };
@@ -23,7 +24,7 @@ export function taskFields() {
     { k: 'due', label: 'Termín', type: 'date', half: true },
     { k: 'prio', label: 'Priorita', type: 'select', half: true, options: [{ v: 1, l: 'Nízká' }, { v: 2, l: 'Střední' }, { v: 3, l: 'Vysoká' }], def: 2 },
     { k: 'cat', label: 'Kategorie', type: 'chips', options: catOptions(true) },
-    { k: 'hustle', label: 'Side hustle', type: 'select', half: true, options: [{ v: '', l: '—' }, ...hustles().map(h => ({ v: h.id, l: h.name }))] },
+    { k: 'hustle', label: 'Projekt', type: 'select', half: true, options: [{ v: '', l: '—' }, ...hustles().map(h => ({ v: h.id, l: h.name }))] },
     { k: 'subject', label: 'Předmět', type: 'select', half: true, options: [{ v: '', l: '—' }, ...subjects().map(s => ({ v: s.id, l: s.name }))] },
     { k: 'notes', label: 'Poznámka', type: 'textarea', rows: 3 },
   ];
@@ -81,7 +82,7 @@ export function eventsOn(d) {
 }
 export function eventFields() {
   return [
-    { k: 'title', label: 'Název', ph: 'Např. Trénink, Přednáška, Akce v Anděl', req: true },
+    { k: 'title', label: 'Název', ph: 'Např. Lékař, Narozeniny, Koncert', req: true },
     { k: 'date', label: 'Datum', type: 'date', req: true, half: true },
     { k: 'allDay', label: 'Celý den', type: 'check', half: true },
     { k: 'start', label: 'Od', type: 'time', half: true },
@@ -134,6 +135,25 @@ export function icsFor(events) {
   return lines.join('\r\n');
 }
 export function exportICS(events, name = 'life-reset.ics') { download(name, icsFor(events), 'text/calendar'); }
+// týdenní rozvrh → opakované události v kalendáři iPhonu (jen bloky s časem)
+export function icsBlocks(blocks) {
+  const BD = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Life Reset//CZ', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Life Reset – rozvrh'];
+  blocks.filter(b => b.start && b.active !== false && (b.days || []).length).forEach(b => {
+    // první výskyt od dnešního týdne
+    const first = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(today(), i)).find(d => b.days.includes(parse(d).getDay()));
+    const end = b.end || b.start;
+    lines.push('BEGIN:VEVENT', `UID:blk-${b.id}@life-reset`, `DTSTAMP:${stamp}`, `SUMMARY:${icsEsc(b.title || wArea(b.area).name)}`,
+      `DTSTART:${icsDate(first)}T${icsTime(b.start)}`, `DTEND:${icsDate(first)}T${icsTime(end)}`,
+      `RRULE:FREQ=WEEKLY;BYDAY=${b.days.map(d => BD[d]).join(',')}`);
+    if (b.place) lines.push(`LOCATION:${icsEsc(b.place)}`);
+    if (Number(b.remind) >= 0) lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEsc(b.title || '')}`, `TRIGGER:-PT${Number(b.remind)}M`, 'END:VALARM');
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
 
 // ---------- připomínky (když je aplikace otevřená) ----------
 let remTimers = [];
@@ -144,7 +164,9 @@ export function scheduleReminders() {
   const horizon = now + 26 * 3600 * 1000;
   const fired = JSON.parse(localStorage.getItem('lr:fired') || '{}');
   [today(), addDays(today(), 1)].forEach(d => {
-    eventsOn(d).forEach(e => {
+    const bl = blocksOn(d).filter(b => b.start && b.remind != null && Number(b.remind) >= 0)
+      .map(b => ({ id: 'b' + b.id, title: b.title || wArea(b.area).name, start: b.start, remind: b.remind, place: b.place || '' }));
+    [...eventsOn(d), ...bl].forEach(e => {
       if (Number(e.remind) < 0 || e.remind == null) return;
       const [hh, mm] = (e.allDay || !e.start ? '09:00' : e.start).split(':').map(Number);
       const at = parse(d); at.setHours(hh, mm, 0, 0);
@@ -261,7 +283,7 @@ export function editTx(t = {}, after = () => {}) {
       { k: 'amount', label: 'Částka (Kč)', type: 'number', step: '1', min: 0, req: true, ph: '0' },
       { k: 'cat', label: 'Kategorie', type: 'chips', options: (type === 'in' ? finIn() : finOut()).map(c => ({ v: c.id, l: c.name, c: c.color })), def: (type === 'in' ? finIn() : finOut())[0].id },
       { k: 'date', label: 'Datum', type: 'date', half: true, def: today() },
-      { k: 'hustle', label: 'Side hustle', type: 'select', half: true, options: [{ v: '', l: '—' }, ...hustles().map(h => ({ v: h.id, l: h.name }))] },
+      { k: 'hustle', label: 'Projekt', type: 'select', half: true, options: [{ v: '', l: '—' }, ...hustles().map(h => ({ v: h.id, l: h.name }))] },
       { k: 'note', label: 'Poznámka', ph: 'Za co' },
     ],
     values: t,

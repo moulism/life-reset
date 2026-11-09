@@ -12,7 +12,7 @@ const SOURCES = [
   { col: 'tasks', name: 'Úkoly', icon: 'tasks', href: () => '#/tasks', text: x => `${x.title} ${x.notes}`, title: x => x.title, link: () => '#/tasks' },
   { col: 'events', name: 'Události', icon: 'calendar', href: () => '#/calendar', text: x => `${x.title} ${x.place} ${x.notes}`, title: x => `${x.title} · ${fmtDay(x.date)}`, link: x => `#/calendar/${x.date}` },
   { col: 'books', name: 'Knihy', icon: 'book', href: () => '#/books', text: x => `${x.title} ${x.author} ${x.notes} ${(x.takeaways || []).join(' ')}`, title: x => x.title, link: x => `#/books/${x.id}` },
-  { col: 'hustles', name: 'Side hustles', icon: 'briefcase', href: () => '#/hustles', text: x => `${x.name} ${x.desc} ${(x.ideas || []).join(' ')}`, title: x => x.name, link: x => `#/hustles/${x.id}` },
+  { col: 'hustles', name: 'Projekty', icon: 'briefcase', href: () => '#/hustles', text: x => `${x.name} ${x.desc} ${(x.ideas || []).join(' ')}`, title: x => x.name, link: x => `#/hustles/${x.id}` },
   { col: 'subjects', name: 'Předměty', icon: 'school', href: () => '#/school', text: x => `${x.name} ${x.teacher}`, title: x => x.name, link: x => `#/school/${x.id}` },
   { col: 'workouts', name: 'Tréninky', icon: 'gym', href: () => '#/gym', text: x => `${x.name} ${(x.exercises || []).map(e => e.name).join(' ')} ${x.note}`, title: x => `${x.name} · ${fmtDay(x.date)}`, link: x => `#/gym/w/${x.id}` },
   { col: 'tx', name: 'Finance', icon: 'wallet', href: () => '#/finance', text: x => `${x.note} ${x.amount}`, title: x => `${x.note || 'Pohyb'} · ${x.amount} Kč`, link: () => '#/finance' },
@@ -63,7 +63,7 @@ export default {
       </section>
       <section class="panel">
         <div class="panel-head"><h3>${icon('file', 18)} Volné soubory</h3><button class="btn sm primary" data-act="upload">${icon('upload', 16)} Nahrát</button></div>
-        ${loose.length ? loose.map(fileRow).join('') : '<p class="muted">Soubory ze školy a side hustles najdeš v jejich sekcích.</p>'}
+        ${loose.length ? loose.map(fileRow).join('') : '<p class="muted">Soubory ze školy a projektů najdeš v jejich sekcích.</p>'}
       </section>
       <section class="panel">
         <div class="panel-head"><h3>Všechny dokumenty</h3><small class="muted">${db.all('files').length}</small></div>

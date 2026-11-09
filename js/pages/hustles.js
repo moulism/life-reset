@@ -8,9 +8,9 @@ let lastId = '';
 
 function editHustle(h = {}, after) {
   openForm({
-    title: h.id ? 'Upravit side hustle' : 'Nový side hustle',
+    title: h.id ? 'Upravit projekt' : 'Nový projekt',
     fields: [
-      { k: 'name', label: 'Název', req: true, ph: 'Např. MetroMood' },
+      { k: 'name', label: 'Název', req: true, ph: 'Např. Moje značka' },
       { k: 'desc', label: 'Popis', ph: 'Čím se to zabývá' },
       { k: 'link', label: 'Odkaz', type: 'url', ph: 'https://' },
       { k: 'color', label: 'Barva', type: 'color' },
@@ -22,7 +22,7 @@ function editHustle(h = {}, after) {
 }
 
 export default {
-  title: a => a[0] ? ((db.get(a[0]) || {}).name || 'Side hustle') : 'Side hustles',
+  title: a => a[0] ? ((db.get(a[0]) || {}).name || 'Projekt') : 'Projekty',
   render(root, args, { refresh }) {
     if (args[0]) return detail(root, args[0], refresh);
     const m = today().slice(0, 7);
@@ -44,8 +44,8 @@ export default {
             <span><b class="${net < 0 ? 'red' : ''}">${money(net)}</b> tento měsíc</span>
           </div>
         </a>`;
-      }).join('') || empty('Zatím žádný side hustle.')}
-      <button class="btn ghost" data-act="new">${icon('plus', 18)} Přidat side hustle</button>
+      }).join('') || empty('Zatím žádný projekt.')}
+      <button class="btn ghost" data-act="new">${icon('plus', 18)} Přidat projekt</button>
     `;
     root.onclick = e => { if (e.target.closest('[data-act="new"]')) editHustle({}, refresh); };
   }

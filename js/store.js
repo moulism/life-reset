@@ -1,8 +1,41 @@
 // Local-first úložiště. Všechno je v jedné mapě položek {id, col, data, updated_at, deleted, dirty}.
 // Synchronizace (sync.js) posílá "dirty" položky do Supabase a stahuje novější.
 
-const KEY = 'lr:v1';
+// Každý účet má v zařízení vlastní úložiště (lr:u:<id>), takže se na jednom telefonu
+// nepomíchají data dvou lidí. Staré úložiště (lr:v1) si převezme první účet, který se přihlásí.
+const LEGACY = 'lr:v1';
+function sessionUid() {
+  try { const a = JSON.parse(localStorage.getItem('lr-auth')); return (a && (a.user || (a.currentSession && a.currentSession.user)) || {}).id || null; }
+  catch (e) { return null; }
+}
+let UID = sessionUid();
+let KEY = UID ? 'lr:u:' + UID : 'lr:guest';
+claimLegacy();
 let S = read();
+
+function claimLegacy() {
+  if (!UID) return;
+  try {
+    if (localStorage.getItem(KEY) == null && localStorage.getItem(LEGACY) != null && !localStorage.getItem('lr:legacyOwner')) {
+      localStorage.setItem(KEY, localStorage.getItem(LEGACY));
+      localStorage.setItem('lr:legacyOwner', UID);
+      localStorage.removeItem(LEGACY);
+    }
+  } catch (e) { /* plné úložiště */ }
+}
+export const currentUid = () => UID;
+// přepnutí na jiný účet (po přihlášení / odhlášení)
+export function useAccount(uid) {
+  if ((uid || null) === UID) return false;
+  flush();
+  UID = uid || null;
+  KEY = UID ? 'lr:u:' + UID : 'lr:guest';
+  claimLegacy();
+  S = read();
+  cache.clear();
+  listeners.forEach(f => { try { f(); } catch (e) { console.error(e); } });
+  return true;
+}
 const cache = new Map();
 let listeners = [];
 

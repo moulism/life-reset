@@ -3,12 +3,10 @@
 export const CAL_CATS = [
   { id: 'osobni', name: 'Osobní', color: '#4FD8FF' },
   { id: 'skola', name: 'Škola', color: '#6E8BFF' },
-  { id: 'unyp', name: 'UNYP', color: '#B07CFF' },
-  { id: 'metromood', name: 'MetroMood', color: '#FF6FB1' },
-  { id: 'andel', name: 'Anděl', color: '#E0B65A' },
-  { id: 'prace', name: 'Kosatka / Republika', color: '#3DDC97' },
-  { id: 'gym', name: 'Gym & fotbal', color: '#FF5C6C' },
-  { id: 'dj', name: 'DJ & akce', color: '#FF9F43' },
+  { id: 'prace', name: 'Práce', color: '#3DDC97' },
+  { id: 'projekty', name: 'Projekty', color: '#FF6FB1' },
+  { id: 'sport', name: 'Sport', color: '#FF5C6C' },
+  { id: 'akce', name: 'Akce & přátelé', color: '#FF9F43' },
 ];
 
 export const FIN_OUT = [
@@ -30,30 +28,13 @@ export const FIN_IN = [
 ];
 
 export const ROUTINE_SUGGEST = {
-  morning: ['Sklenice vody hned po probuzení', 'Snídaně (A nebo B)', 'Ustlat postel', '10 min protažení', 'Napsat 3 priority dne', 'Studená sprcha', 'Prvních 30 min bez telefonu', 'Přečíst 10 stran'],
-  day: ['Krabička k obědu', 'Nabírací shake', 'Trénink nebo fotbal', '2,5–3 l vody', 'Hodina práce na side hustle', 'Škola – úkoly a učení'],
-  evening: ['Krabička k večeři', 'Zápis do deníku', 'Připravit věci na zítřek', 'Číst 15 min', 'Telefon pryč do 23:00', 'Zkontrolovat finance za den'],
+  morning: ['Sklenice vody hned po probuzení', 'Snídaně', 'Ustlat postel', '10 min protažení', 'Napsat 3 priority dne', 'Studená sprcha', 'Prvních 30 min bez telefonu', 'Přečíst 10 stran'],
+  day: ['Oběd z krabičky', 'Trénink', '2,5–3 l vody', 'Hodina práce na projektu', 'Škola – úkoly a učení', '15 min kliky'],
+  evening: ['Večeře', 'Zápis do deníku', 'Připravit věci na zítřek', 'Číst 15 min', 'Telefon pryč do 23:00', 'Zkontrolovat finance za den'],
 };
 
-export const HUSTLE_SUGGEST = [
-  { name: 'MetroMood', color: '#FF6FB1', desc: 'Streetwear značka · metromood.store', link: 'https://metromood.store',
-    goals: [
-      { text: 'Strategie relaunche schválená tátou', target: 1, current: 0, unit: '' },
-      { text: 'Obsah na IG + TikTok týdně', target: 3, current: 0, unit: 'postů' },
-      { text: 'Objednávky mimo kamarády', target: 20, current: 0, unit: 'obj.' },
-    ],
-    ideas: ['Propojit MetroMood s akcemi v Anděl', 'Drop 01 denim – plán na jaro'] },
-  { name: 'Anděl', color: '#E0B65A', desc: 'Café · Music Club · Dvorek · Bistro · Station – Bezručova 7, Plzeň', link: '',
-    goals: [
-      { text: 'Program akcí na příští měsíc', target: 1, current: 0, unit: '' },
-      { text: 'Web Anděl Plzeň spuštěný', target: 1, current: 0, unit: '' },
-      { text: 'Menu Anděl Bistro hotové', target: 1, current: 0, unit: '' },
-    ],
-    ideas: [] },
-  { name: 'Kosatka', color: '#3DDC97', desc: 'Kemp Hracholusky', link: '', goals: [], ideas: [] },
-  { name: 'Republika', color: '#FF9F43', desc: '', link: '', goals: [], ideas: [] },
-  { name: 'DJing', color: '#B07CFF', desc: 'Sety, akce, příprava', link: '', goals: [], ideas: [] },
-];
+// Návrhy projektů v průvodci – každý si je pojmenuje sám.
+export const HUSTLE_SUGGEST = [];
 
 export const GYM_TEMPLATES = [
   { name: 'Push', exercises: ['Bench press', 'Tlaky s jednoručkami na šikmé', 'Tlaky nad hlavu', 'Upažování', 'Dipy', 'Triceps na kladce'] },
@@ -62,7 +43,7 @@ export const GYM_TEMPLATES = [
   { name: 'Full body', exercises: ['Dřep', 'Bench press', 'Přítahy v předklonu', 'Tlaky nad hlavu', 'Plank'] },
 ];
 
-export const SCHOOLS = ['VOŠ a SPŠE Plzeň (4.I)', 'UNYP – Business Administration'];
+export const SCHOOLS = [];
 
 export const JOURNAL_PROMPTS = [
   'Co dnes posunulo věci dopředu?',
@@ -75,3 +56,43 @@ export const JOURNAL_PROMPTS = [
 ];
 
 export const SHOP_CATS = ['Maso & ryby', 'Mléčné & vejce', 'Pečivo', 'Ovoce & zelenina', 'Trvanlivé', 'Mražené', 'Koření & omáčky', 'Ostatní'];
+
+// ---------- moduly ----------
+// core = vždy zapnuté. Ostatní si každý uživatel zapne v průvodci nebo v Nastavení → Moduly.
+export const MODULES = [
+  { id: 'week', name: 'Týden & hodiny', ic: 'clock', c: '#4FD8FF', desc: 'Rozvrh týdne, bloky a rozpočet hodin (plán vs. skutečnost)', def: true },
+  { id: 'habits', name: 'Návyky', ic: 'bolt', c: '#E0B65A', desc: 'Denní body k odškrtnutí – ráno, přes den, večer', def: true },
+  { id: 'tasks', name: 'Úkoly', ic: 'tasks', c: '#6E8BFF', desc: 'Úkoly s termínem a prioritou', def: true },
+  { id: 'calendar', name: 'Kalendář', ic: 'calendar', c: '#4FD8FF', desc: 'Události, opakování, export do iPhonu', def: true },
+  { id: 'finance', name: 'Finance', ic: 'wallet', c: '#3DDC97', desc: 'Příjmy, výdaje, účty a cash flow', def: true },
+  { id: 'notes', name: 'Poznámky', ic: 'note', c: '#2EC4B6', desc: 'Poznámky se složkami, fotkami a soubory', def: true },
+  { id: 'shop', name: 'Nákupy & wishlist', ic: 'cart', c: '#FF9F43', desc: 'Nákupní seznam a přání s odkazem na e-shop', def: true },
+  { id: 'gym', name: 'Trénink', ic: 'gym', c: '#FF5C6C', desc: 'Šablony tréninků, série a váhy z minula', def: true },
+  { id: 'food', name: 'Jídlo', ic: 'food', c: '#3DDC97', desc: 'Kalorie, bílkoviny, recepty a vaření', def: false },
+  { id: 'school', name: 'Škola', ic: 'school', c: '#B07CFF', desc: 'Předměty, materiály a termíny', def: false },
+  { id: 'hustles', name: 'Projekty', ic: 'briefcase', c: '#FF6FB1', desc: 'Vlastní projekty s cíli, úkoly a penězi', def: false },
+  { id: 'diary', name: 'Deník', ic: 'diary', c: '#B07CFF', desc: 'Večerní zápis, nálada a spánek', def: true },
+  { id: 'books', name: 'Knihy', ic: 'book', c: '#FF9F43', desc: 'Knihovna, rozečtené a přečtené', def: false },
+  { id: 'archive', name: 'Archiv souborů', ic: 'folder', c: '#E0B65A', desc: 'Doklady, smlouvy a hledání ve všem', def: false },
+  { id: 'game', name: 'XP, levely & série', ic: 'star', c: '#E0B65A', desc: 'Skóre dne, série, levely a odznaky', def: true },
+];
+export const defaultModules = () => MODULES.filter(m => m.def).map(m => m.id);
+
+// Návrhy oblastí pro rozpočet hodin (týden)
+export const AREA_SUGGEST = [
+  { name: 'Škola', color: '#6E8BFF', budget: 15 },
+  { name: 'Práce', color: '#3DDC97', budget: 10 },
+  { name: 'Projekt', color: '#FF6FB1', budget: 8 },
+  { name: 'Trénink', color: '#FF5C6C', budget: 4 },
+  { name: 'Učení', color: '#B07CFF', budget: 5 },
+  { name: 'Čtení', color: '#FF9F43', budget: 2 },
+];
+
+// Barevné styly – „hud“ (JARVIS) má odemykací témata, „clean“ má volné akcenty.
+export const CLEAN_ACCENTS = [
+  { id: 'blue', name: 'Modrá', color: '#2F6BFF' },
+  { id: 'green', name: 'Zelená', color: '#13A36B' },
+  { id: 'violet', name: 'Fialová', color: '#7B5CFF' },
+  { id: 'orange', name: 'Oranžová', color: '#F2731C' },
+  { id: 'graphite', name: 'Grafit', color: '#3A4250' },
+];

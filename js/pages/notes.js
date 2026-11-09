@@ -51,7 +51,7 @@ function editor(root, id, go) {
       <div class="field"><label for="nTags">Štítky (oddělené čárkou)</label><input id="nTags" value="${esc((n.tags || []).join(', '))}" placeholder="nápad, metromood, škola"></div>
       <div class="two">
         <div class="field"><label for="nF">Složka</label><select id="nF">${opt(folders(), n.folder, '—')}</select></div>
-        <div class="field"><label for="nH">Side hustle</label><select id="nH">${opt(hustles(), n.hustle, '—')}</select></div>
+        <div class="field"><label for="nH">Projekt</label><select id="nH">${opt(hustles(), n.hustle, '—')}</select></div>
       </div>
       <div class="field"><label for="nS">Předmět</label><select id="nS">${opt(subjects(), n.subject, '—')}</select></div>
       <div class="field"><label>Barva</label><div class="swatches">${['', ...SWATCHES].map(c => `<button type="button" class="sw ${c === (n.color || '') ? 'on' : ''}" data-c="${c}" style="--c:${c || 'var(--line)'}" aria-label="${c || 'bez barvy'}"></button>`).join('')}</div></div>

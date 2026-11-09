@@ -9,13 +9,14 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Life Reset">
-  <meta name="description" content="Life Reset – osobní systém pro rutinu, kalendář, jídlo, trénink, finance a side hustles.">
+  <meta name="description" content="Life Reset – týden, návyky, úkoly, finance, trénink a poznámky na jednom místě.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" href="icons/favicon-64.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Saira:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Saira:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>try{var L=JSON.parse(localStorage.getItem('lr:look'));if(L){var R=document.documentElement;R.dataset.style=L.style;R.dataset.theme=L.theme;R.dataset.mode=L.mode;}}catch(e){}</script>
   <link rel="stylesheet" href="css/app.css">
   <title>Life Reset</title>
 </head>
@@ -34,7 +35,7 @@
     <div class="boot-lines">
       <p class="boot-line l1">Spouštím systémy</p>
       <p class="boot-line l2">Načítám tvůj den</p>
-      <p class="boot-welcome" id="bootWelcome">Welcome, Master M</p>
+      <p class="boot-welcome" id="bootWelcome"></p>
     </div>
   </div>
 

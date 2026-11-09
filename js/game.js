@@ -1,6 +1,8 @@
 // Herní systém: XP, levely, hodnosti, denní skóre, série (streak) a odemykání.
 import { db, profile, setProfile } from './store.js';
 import { today, addDays, weekday, sum, toast, icon, esc } from './ui.js';
+import { has } from './mods.js';
+import { CLEAN_ACCENTS } from './data/defaults.js';
 
 // ---------- XP ----------
 export function award(ref, amount, reason = '') {
@@ -36,16 +38,18 @@ export const RANKS = [
 export const rankOf = L => RANKS.filter(r => r[0] <= L).pop()[1];
 
 // ---------- denní skóre ----------
-// váhy: rutina 40, úkoly 20, deník 15, kalorie 15, tělo (trénink nebo voda) 10
+// Skóre 0–100 z modulů, které má uživatel zapnuté: bloky týdne, návyky, úkoly, deník, jídlo, tělo.
 export function buildIndex() {
-  const idx = { rlog: {}, tasks: {}, journal: {}, kcal: {}, water: {}, gym: {} };
+  const idx = { rlog: {}, tasks: {}, journal: {}, kcal: {}, water: {}, gym: {}, bday: {}, blocks: [] };
   db.all('routinelog').forEach(l => { idx.rlog[l.date] = l; });
   db.all('tasks').forEach(t => { if (t.due) (idx.tasks[t.due] = idx.tasks[t.due] || []).push(t); });
   db.all('journal').forEach(j => { if ((j.text && j.text.trim()) || j.mood) idx.journal[j.date] = true; });
   db.all('meals').forEach(m => { idx.kcal[m.date] = (idx.kcal[m.date] || 0) + (Number(m.kcal) || 0); });
   db.all('daylog').forEach(d => { idx.water[d.date] = d.water || 0; });
   db.all('workouts').forEach(w => { if (w.done) idx.gym[w.date] = true; });
+  db.all('blockday').forEach(b => { if (b.status === 'done') (idx.bday[b.moveTo || b.date] = idx.bday[b.moveTo || b.date] || new Set()).add(b.block); });
   idx.routines = db.all('routine').filter(r => r.active !== false);
+  idx.blocks = db.all('blocks').filter(b => b.active !== false);
   return idx;
 }
 export function routinesFor(date, routines) {
@@ -53,19 +57,34 @@ export function routinesFor(date, routines) {
   return routines.filter(r => !r.days || !r.days.length || r.days.includes(wd));
 }
 export function dayScore(date, idx = buildIndex(), p = profile() || {}) {
+  const parts = {};
+  const W = [];
+  const add = (k, w, v) => { W.push([w, v]); parts[k] = v; };
+  // bloky týdne (bez ohledu na místo – jednoduchý odhad dne)
+  const wd = weekday(date);
+  const bl = idx.blocks.filter(b => (b.days || []).includes(wd) && (!b.from || b.from <= date) && (!b.until || b.until >= date));
+  const bDone = idx.bday[date] ? idx.bday[date].size : 0;
+  if (has('week', p) && bl.length) add('blocks', 35, Math.min(1, bDone / bl.length));
   const rs = routinesFor(date, idx.routines);
   const done = idx.rlog[date] ? idx.rlog[date].done || [] : [];
   const rDone = rs.filter(r => done.includes(r.id)).length;
-  const rPart = rs.length ? rDone / rs.length : 0;
+  if (has('habits', p) && rs.length) add('routine', 30, rDone / rs.length);
   const ts = idx.tasks[date] || [];
-  const tPart = ts.length ? ts.filter(t => t.done).length / ts.length : 1;
-  const jPart = idx.journal[date] ? 1 : 0;
-  const kTarget = (p.targets && p.targets.kcal) || 3000;
-  const kPart = Math.min(1, (idx.kcal[date] || 0) / (kTarget * 0.95));
-  const wTarget = (p.targets && p.targets.water) || 3000;
-  const bPart = idx.gym[date] ? 1 : Math.min(1, (idx.water[date] || 0) / wTarget);
-  const score = Math.round(rPart * 40 + tPart * 20 + jPart * 15 + kPart * 15 + bPart * 10);
-  return { score, parts: { routine: [rDone, rs.length], tasks: [ts.filter(t => t.done).length, ts.length], journal: jPart, kcal: idx.kcal[date] || 0, body: bPart } };
+  if (has('tasks', p) && ts.length) add('tasks', 15, ts.filter(t => t.done).length / ts.length);
+  if (has('diary', p)) add('journal', 10, idx.journal[date] ? 1 : 0);
+  const kTarget = (p.targets && p.targets.kcal) || 2500;
+  if (has('food', p)) add('kcal', 10, Math.min(1, (idx.kcal[date] || 0) / (kTarget * 0.95)));
+  if (has('gym', p) && idx.gym[date]) add('body', 10, 1);
+  const wsum = sum(W, x => x[0]);
+  const score = wsum ? Math.round(sum(W, x => x[0] * x[1]) / wsum * 100) : 0;
+  return {
+    score,
+    parts: {
+      blocks: [bDone, bl.length], routine: [rDone, rs.length],
+      tasks: [ts.filter(t => t.done).length, ts.length], journal: idx.journal[date] ? 1 : 0,
+      kcal: idx.kcal[date] || 0, body: idx.gym[date] ? 1 : 0,
+    },
+  };
 }
 export const STREAK_MIN = 60;
 
@@ -95,6 +114,7 @@ export function stats() {
     tasksDone: db.all('tasks').filter(t2 => t2.done).length,
     meals: db.all('meals').length,
     tx: db.all('tx').length,
+    hours: Math.round((sum(db.all('blockday').filter(b => b.status === 'done'), b => b.mins) + sum(db.all('timelog'), t => t.mins)) / 60),
   };
 }
 
@@ -116,6 +136,7 @@ export const UNLOCKS = [
   { id: 'b-shelf', kind: 'badge', name: 'Celá police', desc: 'Dočti 7 knih', test: s => s.booksDone >= 7 },
   { id: 'b-tasks', kind: 'badge', name: 'Exekutor', desc: '50 hotových úkolů', test: s => s.tasksDone >= 50 },
   { id: 'b-meals', kind: 'badge', name: 'Krabičkář', desc: '100 zapsaných jídel', test: s => s.meals >= 100 },
+  { id: 'b-hours', kind: 'badge', name: 'Deep work', desc: '100 odpracovaných hodin', test: s => s.hours >= 100 },
   { id: 'b-l10', kind: 'badge', name: 'Level 10', desc: 'Dosáhni levelu 10', test: s => s.level >= 10 },
   { id: 'b-l20', kind: 'badge', name: 'Level 20', desc: 'Dosáhni levelu 20', test: s => s.level >= 20 },
 ];
@@ -147,5 +168,24 @@ export const THEMES = {
   'theme-arc': 'arc', 'theme-wayne': 'wayne', 'theme-stark': 'stark', 'theme-steel': 'steel', 'theme-gotham': 'gotham',
 };
 export function applyTheme(p = profile()) {
-  document.documentElement.dataset.theme = (p && p.theme) || 'arc';
+  const root = document.documentElement;
+  const style = (p && p.style) || 'hud';
+  root.dataset.style = style;
+  root.dataset.theme = style === 'hud' ? ((p && p.theme) || 'arc') : 'clean';
+  root.dataset.mode = (p && p.mode) || 'auto';
+  if (style === 'clean') {
+    const a = CLEAN_ACCENTS.find(x => x.id === (p && p.accent)) || CLEAN_ACCENTS[0];
+    root.style.setProperty('--acc', a.color);
+    const n = parseInt(a.color.slice(1), 16);
+    root.style.setProperty('--acc-rgb', `${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}`);
+    root.style.setProperty('--acc-ink', '#FFFFFF');
+  } else {
+    ['--acc', '--acc-rgb', '--acc-ink'].forEach(k => root.style.removeProperty(k));
+  }
+  try { localStorage.setItem('lr:look', JSON.stringify({ style, theme: root.dataset.theme, mode: root.dataset.mode })); } catch (e) { /* */ }
+  const dark = style === 'hud' || root.dataset.mode === 'dark' || (root.dataset.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = dark ? (style === 'hud' ? '#080C11' : '#111315') : '#F6F7F9';
+  document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', dark ? 'dark' : 'light');
 }
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyTheme());

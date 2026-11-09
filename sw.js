@@ -1,5 +1,5 @@
 // Service worker – aplikace funguje offline. Při každé nové verzi zvyš VERSION.
-const VERSION = 'lr-v2.1.0';
+const VERSION = 'lr-v2.2.0';
 const SHELL = [
   './', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/auth-ui.js', 'js/mods.js', 'js/week-core.js', 'js/money-core.js', 'js/store.js', 'js/sync.js', 'js/game.js', 'js/ui.js', 'js/common.js',

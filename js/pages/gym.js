@@ -1,13 +1,22 @@
 import { db, profile } from '../store.js';
 import { award, revoke } from '../game.js';
 import { esc, icon, today, fmtDay, relDay, sheet, openForm, toast, empty, chart, cssVar, addDays, mondayOf, num1, confirmSheet, segTabs } from '../ui.js';
+import { blocksOn, statusFor, setBlock, area as wArea } from '../week-core.js';
+import { has } from '../mods.js';
+
+// dokončený trénink odškrtne dnešní blok tréninku v Týdnu (pokud tam je)
+function tickTrainingBlock(date, mins) {
+  if (!has('week')) return;
+  const b = blocksOn(date).find(x => /tr[eé]n|gym|sport|cvi[cč]|fotbal|posil/i.test(`${x.title || ''} ${wArea(x.area).name}`) && !(statusFor(date, x) && statusFor(date, x).status === 'done'));
+  if (b) { setBlock(b.movedFrom || date, b, 'done', mins || undefined); toast(`Blok „${esc(b.title || wArea(b.area).name)}“ odškrtnut`); }
+}
 
 let tab = 'overview';
 
 const vol = w => (w.exercises || []).reduce((a, e) => a + (e.sets || []).reduce((b, s) => b + (Number(s.kg) || 0) * (Number(s.reps) || 0), 0), 0);
 
 export default {
-  title: a => a[0] === 'w' ? 'Trénink' : 'Gym',
+  title: a => a[0] === 'w' ? 'Trénink' : 'Trénink',
   render(root, args, { refresh, go }) {
     if (args[0] === 'w' && args[1]) return editor(root, args[1], refresh, go);
     const p = profile();
@@ -44,7 +53,7 @@ export default {
           <div class="panel-head"><h3>Začít trénink</h3><button class="link" data-act="tpl-manage">Upravit šablony</button></div>
           <div class="tpl-grid">${tpls.map(t => `<button class="tpl" data-act="start" data-id="${t.id}"><b>${esc(t.name)}</b><small>${(t.exercises || []).length} cviků</small></button>`).join('')}
           <button class="tpl ghost" data-act="start-empty"><b>${icon('plus', 16)} Prázdný</b><small>vlastní cviky</small></button>
-          <button class="tpl ghost" data-act="football"><b>Fotbal</b><small>trénink / zápas</small></button></div>
+          <button class="tpl ghost" data-act="football"><b>Sport</b><small>fotbal, běh, cokoli</small></button></div>
         </section>
         <section class="panel"><div class="panel-head"><h3>Tréninky po týdnech</h3></div><div class="chart-box"><canvas id="gWeeks"></canvas></div></section>
         <section class="panel"><div class="panel-head"><h3>Tělesná váha</h3><button class="btn sm ghost" data-act="weight">${icon('plus', 16)} Zapsat váhu</button></div>
@@ -84,8 +93,8 @@ export default {
         go('gym/w/' + id);
       } else if (act === 'football') {
         openForm({
-          title: 'Fotbal', fields: [{ k: 'name', label: 'Typ', type: 'chips', options: [{ v: 'Fotbal – trénink', l: 'Trénink' }, { v: 'Fotbal – zápas', l: 'Zápas' }], def: 'Fotbal – trénink' }, { k: 'date', label: 'Datum', type: 'date', def: today(), half: true }, { k: 'duration', label: 'Minut', type: 'number', def: 90, half: true }, { k: 'note', label: 'Poznámka', type: 'textarea', rows: 2 }],
-          onSave: v => { const id = db.put('workouts', { ...v, kind: 'football', exercises: [], done: true }); award('gym:' + id, 40, 'Trénink'); refresh(); }
+          title: 'Sport', fields: [{ k: 'name', label: 'Co', req: true, ph: 'Např. Fotbal – trénink, Běh 5 km', def: 'Fotbal – trénink' }, { k: 'date', label: 'Datum', type: 'date', def: today(), half: true }, { k: 'duration', label: 'Minut', type: 'number', def: 90, half: true }, { k: 'note', label: 'Poznámka', type: 'textarea', rows: 2 }],
+          onSave: v => { const id = db.put('workouts', { ...v, kind: 'football', exercises: [], done: true }); award('gym:' + id, 40, 'Trénink'); if (v.date === today()) tickTrainingBlock(v.date, v.duration); refresh(); }
         });
       } else if (act === 'weight') {
         openForm({
@@ -128,12 +137,12 @@ function editor(root, id, refresh, go) {
   db.all('gymtpl').forEach(t => (t.exercises || []).forEach(x => known.add(x)));
   db.all('workouts').forEach(x => (x.exercises || []).forEach(e => known.add(e.name)));
   // poslední výkon pro nápovědu
-  const lastOf = name => {
+  const prevSets = name => {
     const prev = db.filter('workouts', x => x.done && x.id !== id && (x.exercises || []).some(e => e.name === name)).sort((a, b) => b.date.localeCompare(a.date))[0];
-    if (!prev) return '';
-    const e = prev.exercises.find(x => x.name === name);
-    return (e.sets || []).filter(s => s.kg || s.reps).map(s => `${s.kg || 0}×${s.reps || 0}`).join(', ');
+    if (!prev) return [];
+    return (prev.exercises.find(x => x.name === name).sets || []).filter(s => s.kg || s.reps);
   };
+  const lastOf = name => prevSets(name).map(s => `${s.kg || 0}×${s.reps || 0}`).join(', ');
   root.innerHTML = `
     <section class="w-head">
       <input class="w-name" id="wName" value="${esc(w.name)}" aria-label="Název tréninku">
@@ -144,9 +153,9 @@ function editor(root, id, refresh, go) {
       const last = lastOf(e.name);
       return `<section class="panel ex" data-i="${i}">
         <div class="ex-head"><input class="ex-name" value="${esc(e.name)}" list="exList" aria-label="Cvik"><button class="icon-btn" data-act="ex-del" data-i="${i}" aria-label="Odebrat cvik">${icon('trash', 18)}</button></div>
-        ${last ? `<p class="ex-last">Minule: ${esc(last)}</p>` : ''}
+        ${last ? `<p class="ex-last">Minule: ${esc(last)} <button class="link" data-act="copy-last" data-i="${i}">Stejně jako minule</button></p>` : ''}
         <div class="sets"><span class="sh">Série</span><span class="sh">kg</span><span class="sh">Opak.</span><span></span>
-        ${(e.sets || []).map((s, j) => `<span class="sn">${j + 1}</span><input inputmode="decimal" data-k="kg" data-i="${i}" data-j="${j}" value="${esc(s.kg)}" aria-label="kg série ${j + 1}"><input inputmode="numeric" data-k="reps" data-i="${i}" data-j="${j}" value="${esc(s.reps)}" aria-label="opakování série ${j + 1}"><button class="icon-btn sm" data-act="set-del" data-i="${i}" data-j="${j}" aria-label="Odebrat sérii">${icon('x', 14)}</button>`).join('')}</div>
+        ${(e.sets || []).map((s, j) => { const ps = prevSets(e.name)[j] || {}; return `<span class="sn">${j + 1}</span><input inputmode="decimal" data-k="kg" data-i="${i}" data-j="${j}" value="${esc(s.kg)}" placeholder="${esc(ps.kg || '')}" aria-label="kg série ${j + 1}"><input inputmode="numeric" data-k="reps" data-i="${i}" data-j="${j}" value="${esc(s.reps)}" placeholder="${esc(ps.reps || '')}" aria-label="opakování série ${j + 1}"><button class="icon-btn sm" data-act="set-del" data-i="${i}" data-j="${j}" aria-label="Odebrat sérii">${icon('x', 14)}</button>`; }).join('')}</div>
         <button class="btn xs ghost" data-act="set-add" data-i="${i}">${icon('plus', 14)} Série</button>
       </section>`;
     }).join('')}</div>
@@ -177,6 +186,7 @@ function editor(root, id, refresh, go) {
     if (!b) return;
     const act = b.dataset.act, i = Number(b.dataset.i), j = Number(b.dataset.j);
     const cur = collect();
+    if (act === 'copy-last') { const ps = prevSets(cur.exercises[i].name); cur.exercises[i].sets = ps.map(x => ({ kg: x.kg, reps: x.reps })); db.put('workouts', cur); refresh(); return; }
     if (act === 'set-add') { const s = cur.exercises[i].sets; const last = s[s.length - 1] || {}; s.push({ kg: last.kg || '', reps: last.reps || '' }); db.put('workouts', cur); refresh(); }
     else if (act === 'set-del') { cur.exercises[i].sets.splice(j, 1); db.put('workouts', cur); refresh(); }
     else if (act === 'ex-del') { cur.exercises.splice(i, 1); db.put('workouts', cur); refresh(); }
@@ -187,6 +197,7 @@ function editor(root, id, refresh, go) {
       cur.exercises = cur.exercises.filter(x => x.name);
       db.put('workouts', { ...cur, done: true, duration });
       award('gym:' + id, 40, 'Trénink');
+      if (!w.done) tickTrainingBlock(cur.date, duration);
       toast('Trénink uložen. Dobrá práce.', 'gold');
       go('gym');
     } else if (act === 'del') {

@@ -1,5 +1,5 @@
 // Jídlo: kalorický tracker + plán "Krabičky na nabírání" (8 týdnů), recepty a info.
-import { db, profile } from '../store.js';
+import { db, profile, setProfile } from '../store.js';
 import { award, revoke } from '../game.js';
 import { esc, icon, today, addDays, fmtDay, relDay, num, num1, sum, progress, openForm, toast, segTabs, chart, cssVar, mondayOf, sheet, parse } from '../ui.js';
 import { PLAN, PRESETS, RECIPES, WEEKS, WEEKS_NOTE, COOK_INTRO, COOK_STEPS, HOW_TO_SHOP, STORAGE, ADJUST, HARD_TO_EAT, AFTER, recipe, planFor } from '../data/mealplan.js';
@@ -8,7 +8,7 @@ let tab = 'today';
 let day = null;
 const SLOTS = [['snidane', 'Snídaně'], ['obed', 'Oběd'], ['svacina', 'Svačina / shake'], ['vecere', 'Večeře'], ['jine', 'Ostatní']];
 
-const targets = () => ({ kcal: 3000, protein: 160, water: 3000, ...((profile() || {}).targets || {}) });
+const targets = () => ({ kcal: 2500, protein: 140, water: 2500, ...((profile() || {}).targets || {}) });
 
 function addMeal(m, d) {
   db.put('meals', { date: d, slot: m.slot || 'jine', name: m.name, kcal: Number(m.kcal) || 0, protein: Number(m.protein) || 0, ref: m.ref || '', at: new Date().toISOString() });
@@ -46,12 +46,14 @@ export default {
   render(root, args, { refresh }) {
     if (!day) day = today();
     let body = '';
+    const MP = !!(profile() || {}).mealPlan;
+    if (!MP && (tab === 'plan' || tab === 'info')) tab = 'today';
     if (tab === 'today') body = todayView(day);
     else if (tab === 'plan') body = planView();
     else if (tab === 'recipes') body = recipesView();
     else if (tab === 'stats') body = statsView();
     else body = infoView();
-    root.innerHTML = `${segTabs([['today', 'Tracker'], ['plan', 'Plán'], ['recipes', 'Recepty'], ['stats', 'Grafy'], ['info', 'Pravidla']], tab)}${body}`;
+    root.innerHTML = `${segTabs([['today', 'Tracker'], ...(MP ? [['plan', 'Plán']] : []), ['recipes', 'Recepty'], ['stats', 'Grafy'], ...(MP ? [['info', 'Pravidla']] : [])], tab)}${body}`;
     if (tab === 'stats') drawStats(root);
 
     root.onclick = e => {
@@ -72,6 +74,9 @@ export default {
         db.put('daylog', { ...(d || {}), date: day, water: Math.max(0, ((d && d.water) || 0) + Number(v)) });
         refresh();
       } else if (act === 'recipe') showRecipe(v);
+      else if (act === 'my-recipe') showMyRecipe(db.get(b.dataset.id), refresh);
+      else if (act === 'recipe-new') editRecipe({}, refresh);
+      else if (act === 'mealplan') { setProfile({ mealPlan: !(profile() || {}).mealPlan }); refresh(); }
       else if (act === 'to-shop') {
         import('./shop.js').then(m => { m.addList(v); toast('Přidáno do nákupního seznamu'); });
       }
@@ -85,11 +90,14 @@ function todayView(d) {
   const kcal = sum(meals, m => m.kcal), prot = sum(meals, m => m.protein);
   const dl = db.find('daylog', x => x.date === d);
   const water = (dl && dl.water) || 0;
-  const plan = planFor(d);
+  const MP = !!(profile() || {}).mealPlan;
+  const plan = MP ? planFor(d) : { status: 'off' };
   const left = Math.max(0, t.kcal - kcal);
   const foods = db.all('foods');
+  const myR = db.all('recipes');
   let planBox = '';
-  if (plan.status === 'on') {
+  if (!MP) planBox = '';
+  else if (plan.status === 'on') {
     planBox = `<div class="plan-boxes">
       <button class="box-btn" data-act="box" data-v="${plan.lunch.id}" data-slot="obed"><small>Oběd · krabička</small><b>${esc(plan.lunch.name)}</b><span>${plan.lunch.kcal} kcal · ${plan.lunch.protein} g B</span></button>
       <button class="box-btn" data-act="box" data-v="${plan.dinner.id}" data-slot="vecere"><small>Večeře · krabička</small><b>${esc(plan.dinner.name)}</b><span>${plan.dinner.kcal} kcal · ${plan.dinner.protein} g B</span></button>
@@ -109,7 +117,7 @@ function todayView(d) {
     <section class="panel hud">
       <div class="kcal-big"><b>${num(kcal)}</b><span>/ ${num(t.kcal)} kcal</span></div>
       ${progress(kcal, t.kcal)}
-      <p class="small muted">${left ? `Ještě ${num(left)} kcal – to je zhruba ${left >= 700 ? 'jedna krabička' : left >= 500 ? 'shake' : 'svačina'}.` : 'Cíl splněn. Přebytek drží růst.'}</p>
+      <p class="small muted">${left ? `Ještě ${num(left)} kcal.` : 'Cíl na dnes splněn.'}</p>
       <div class="macro"><span>Bílkoviny</span><b>${num(prot)} / ${num(t.protein)} g</b></div>
       ${progress(prot, t.protein, 'var(--gold)')}
       <div class="water">
@@ -118,9 +126,10 @@ function todayView(d) {
       </div>
     </section>
     <section class="panel">
-      <div class="panel-head"><h3>${icon('food', 18)} Podle plánu</h3>${plan.week ? `<small class="muted">týden ${plan.week.n} · ${plan.week.ab}</small>` : ''}</div>
+      <div class="panel-head"><h3>${icon('food', 18)} ${MP ? 'Podle plánu' : 'Rychle přidat'}</h3>${plan.week ? `<small class="muted">týden ${plan.week.n} · ${plan.week.ab}</small>` : ''}</div>
       ${planBox}
-      <div class="preset-row">${PRESETS.map(p => `<button class="chip" data-act="preset" data-v="${p.id}">${icon('plus', 14)} ${esc(p.name.replace('Snídaně ', 'Sn. '))} <small>${p.kcal}</small></button>`).join('')}</div>
+      ${MP ? `<div class="preset-row">${PRESETS.map(p => `<button class="chip" data-act="preset" data-v="${p.id}">${icon('plus', 14)} ${esc(p.name.replace('Snídaně ', 'Sn. '))} <small>${p.kcal}</small></button>`).join('')}</div>` : ''}
+      ${myR.length ? `<h4 class="sub">Moje recepty</h4><div class="preset-row">${myR.map(r => `<button class="chip" data-act="my-recipe" data-id="${r.id}">${icon('book', 14)} ${esc(r.name)} <small>${num(r.kcal)}</small></button>`).join('')}</div>` : ''}
       ${foods.length ? `<h4 class="sub">Moje jídla</h4><div class="preset-row">${foods.map(f => `<span class="chip food-chip"><button class="link-plain" data-act="food" data-id="${f.id}">${icon('plus', 14)} ${esc(f.name)} <small>${num(f.kcal)}</small></button><button class="x" data-act="food-del" data-id="${f.id}" aria-label="Odebrat z mých jídel">${icon('x', 12)}</button></span>`).join('')}</div>` : ''}
       <button class="btn ghost sm" data-act="custom">${icon('plus', 16)} Vlastní jídlo</button>
     </section>
@@ -130,7 +139,7 @@ function todayView(d) {
         const list = meals.filter(m => (m.slot || 'jine') === k);
         if (!list.length) return '';
         return `<h4 class="sub">${l}</h4>${list.map(m => `<button class="row" data-act="meal" data-id="${m.id}"><div class="row-main"><p class="row-title">${esc(m.name)}</p><p class="row-meta"><span>${num(m.protein)} g bílkovin</span></p></div><b>${num(m.kcal)} kcal</b></button>`).join('')}`;
-      }).join('') : '<p class="muted">Zatím nic. Klepni na jídlo z plánu výš.</p>'}
+      }).join('') : '<p class="muted">Zatím nic. Přidej jídlo výš.</p>'}
     </section>`;
 }
 
@@ -169,9 +178,68 @@ function planView() {
 }
 
 function recipesView() {
-  return `<p class="lead">Gramáže na 1 krabičku, suroviny syrové/suché. Při vaření násobíš počtem porcí (3 nebo 2).</p>
+  const MP = !!(profile() || {}).mealPlan;
+  const mine = db.all('recipes').sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  return `
+    <section class="panel"><div class="panel-head"><h3>${icon('book', 18)} Moje recepty</h3><button class="btn sm primary" data-act="recipe-new">${icon('plus', 16)} Recept</button></div>
+      ${mine.length ? `<div class="recipe-grid">${mine.map(r => `<button class="recipe-card" data-act="my-recipe" data-id="${r.id}"><b>${esc(r.name)}</b><small>${num(r.kcal)} kcal · ${num(r.protein)} g B / porce</small></button>`).join('')}</div>`
+        : '<p class="muted">Ulož si, co vaříš. Suroviny pak jedním klepnutím pošleš do nákupního seznamu (vynásobené počtem porcí) a porci zapíšeš do trackeru.</p>'}
+    </section>
+    ${MP ? `<p class="lead">Plán krabiček: gramáže na 1 krabičku, suroviny syrové/suché.</p>
     <div class="recipe-grid">${RECIPES.map((r, i) => `<button class="recipe-card" data-act="recipe" data-v="${r.id}">
-      <span class="rn">${i + 1}</span><b>${esc(r.name)}</b><small>${r.kcal} kcal · ${r.protein} g bílkovin</small></button>`).join('')}</div>`;
+      <span class="rn">${i + 1}</span><b>${esc(r.name)}</b><small>${r.kcal} kcal · ${r.protein} g bílkovin</small></button>`).join('')}</div>` : ''}
+    <div class="row-btns"><button class="btn ghost" data-act="mealplan">${MP ? 'Vypnout plán krabiček na nabírání' : 'Zapnout plán krabiček na nabírání (8 týdnů)'}</button></div>`;
+}
+function editRecipe(r = {}, after) {
+  openForm({
+    title: r.id ? 'Upravit recept' : 'Nový recept',
+    fields: [
+      { k: 'name', label: 'Název', req: true, ph: 'Např. Burrito bowl' },
+      { k: 'kcal', label: 'kcal / porce', type: 'number', half: true },
+      { k: 'protein', label: 'Bílkoviny / porce (g)', type: 'number', half: true },
+      { k: 'ing', label: 'Suroviny na 1 porci (každá na řádek)', type: 'textarea', rows: 6, ph: '150 g kuřecích prsou\n80 g rýže\n½ papriky' },
+      { k: 'steps', label: 'Postup', type: 'textarea', rows: 4 },
+    ],
+    values: r,
+    onSave: v => { db.put('recipes', { ...r, ...v, kcal: v.kcal || 0, protein: v.protein || 0 }); after(); },
+    onDelete: r.id ? () => { db.del(r.id); after(); } : null,
+  });
+}
+function showMyRecipe(r, after) {
+  if (!r) return;
+  let portions = 1;
+  const ing = String(r.ing || '').split('\n').map(x => x.trim()).filter(Boolean);
+  const s = sheet({
+    title: r.name,
+    body: `<div class="kpis"><div><span>kcal / porce</span><b>${num(r.kcal)}</b></div><div><span>Bílkoviny</span><b>${num(r.protein)} g</b></div><div><span>Porce</span><b class="portions">${[1, 2, 3, 4, 6].map(n => `<button class="btn xs" data-p="${n}">${n}</button>`).join('')}</b></div></div>
+      ${ing.length ? `<h4 class="sub">Suroviny <small class="muted" id="pLab"></small></h4><ul class="ing" id="ing"></ul>` : ''}
+      ${r.steps ? `<h4 class="sub">Postup</h4><p class="pre">${esc(r.steps)}</p>` : ''}
+      <div class="row-btns">
+        ${ing.length ? `<button class="btn ghost" data-a="shop">${icon('cart', 18)} Do nákupu</button>` : ''}
+        <button class="btn primary" data-a="eat">${icon('plus', 18)} Snědl jsem porci</button>
+      </div>
+      <p class="small center"><button class="link" data-a="edit">Upravit recept</button></p>`,
+  });
+  const draw = () => {
+    const box = s.body.querySelector('#ing');
+    if (box) box.innerHTML = ing.map(x => `<li>${esc(scale(x, portions))}</li>`).join('');
+    const lab = s.body.querySelector('#pLab');
+    if (lab) lab.textContent = `na ${portions} ${portions === 1 ? 'porci' : portions < 5 ? 'porce' : 'porcí'}`;
+    s.body.querySelectorAll('[data-p]').forEach(b => b.classList.toggle('primary', Number(b.dataset.p) === portions));
+  };
+  s.body.onclick = e => {
+    const b = e.target.closest('[data-p]');
+    if (b) { portions = Number(b.dataset.p); draw(); return; }
+    const a = e.target.closest('[data-a]');
+    if (!a) return;
+    if (a.dataset.a === 'shop') {
+      let n = 0;
+      ing.forEach(x => { const name = scale(x, portions); if (!db.find('shop', i => i.name === name && !i.done)) { db.put('shop', { name, cat: 'Ostatní', done: false, added: new Date().toISOString() }); n++; } });
+      toast(`Přidáno ${n} položek do nákupu`);
+    } else if (a.dataset.a === 'eat') { addMeal({ name: r.name, kcal: r.kcal, protein: r.protein, slot: 'jine', ref: r.id }, day || today()); s.close(); after(); }
+    else if (a.dataset.a === 'edit') { s.close(); editRecipe(r, after); }
+  };
+  draw();
 }
 
 function showRecipe(id) {

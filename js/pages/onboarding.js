@@ -172,7 +172,7 @@ function create() {
     modules: st.modules, places, placeDefault: (p && p.placeDefault) || (places.length ? Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map(d => [d, places[0]])) : {}),
     targets: st.targets, cats: (p && p.cats) || CAL_CATS,
     unlocked: (p && p.unlocked) || ['theme-arc'], lastLevel: (p && p.lastLevel) || 1, bestStreak: (p && p.bestStreak) || 0,
-    createdAt: (p && p.createdAt) || now, v2: true, lang: (p && p.lang) || 'cs',
+    createdAt: (p && p.createdAt) || now, v2: true, lang: (p && p.lang) || 'cs', mealPlan: p ? (p.mealPlan ?? true) : false,
   });
   applyTheme();
   toast(`${icon('bolt', 18)} Připraveno${st.name ? `, ${esc(st.name)}` : ''}.`, 'gold long');

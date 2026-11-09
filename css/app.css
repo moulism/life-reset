@@ -864,3 +864,4 @@ select { -webkit-appearance: none; appearance: none; background-image: url("data
 .att-img .x { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; }
 .inline-add.big.one { flex-wrap: nowrap; }
 .inline-add.big.one input { flex: 1 1 auto; }
+.pre { white-space: pre-line; }

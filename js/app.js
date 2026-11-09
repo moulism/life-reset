@@ -5,6 +5,7 @@ import { initSync, sync } from './sync.js';
 import { applyTheme, checkUnlocks, stats } from './game.js';
 import { $, icon, esc, sheetOpen } from './ui.js';
 import { scheduleReminders } from './common.js';
+import { postDueRecurring } from './money-core.js';
 
 import home from './pages/home.js';
 import calendar from './pages/calendar.js';
@@ -120,6 +121,7 @@ function boot() {
     render();
     setTimeout(() => bootEl.remove(), 600);
     setTimeout(() => { if (profile()) checkUnlocks(); }, 900);
+    setTimeout(() => { try { if (profile() && has('finance')) postDueRecurring(); } catch (e) { console.warn(e); } }, 3000);
   };
   bootEl.addEventListener('click', finish);
   const quick = reduce || !p || p.style === 'clean';

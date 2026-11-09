@@ -218,3 +218,13 @@ export async function removeFile(path) {
   if (!sb || !sync.user) return;
   await sb.storage.from(window.LR_CONFIG.bucket).remove([path]);
 }
+
+// ---------- náhled odkazu (wishlist) ----------
+export async function linkPreview(url) {
+  const c = await client();
+  if (!sync.user) throw new Error('Pro načtení odkazu musíš být online a přihlášený.');
+  const { data, error } = await c.functions.invoke('link-preview', { body: { url } });
+  if (error) throw new Error('Odkaz se nepodařilo načíst');
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}

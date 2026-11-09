@@ -5,11 +5,11 @@ import { openForm, esc, icon, today, relDay, toast, download, money, fmtDay, par
 import { CAL_CATS, FIN_OUT, FIN_IN } from './data/defaults.js';
 import { canUpload, uploadFile, fileUrl, removeFile } from './sync.js';
 import { blocksOn, area as wArea } from './week-core.js';
+import { finOut, finIn, accounts, account, defaultAccount, learn, guessCat } from './money-core.js';
 
 export const cats = () => (profile() && profile().cats) || CAL_CATS;
 export const cat = id => cats().find(c => c.id === id) || { id: '', name: 'Bez kategorie', color: '#5C6E7C' };
-export const finOut = () => (profile() && profile().finOut) || FIN_OUT;
-export const finIn = () => (profile() && profile().finIn) || FIN_IN;
+export { finOut, finIn };
 export const hustles = () => db.all('hustles').slice().sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
 export const subjects = () => db.all('subjects').slice().sort((a, b) => a.name.localeCompare(b.name, 'cs'));
 export const folders = () => db.all('folders').slice().sort((a, b) => a.name.localeCompare(b.name, 'cs'));
@@ -205,19 +205,36 @@ export function noteCard(n) {
     ${n.pinned ? `<span class="pin">${icon('pin', 14)}</span>` : ''}
     <h4>${esc(n.title || 'Bez názvu')}</h4>
     ${body ? `<p>${esc(body)}</p>` : ''}
-    <small>${fmtDay((n.updated || n.created || new Date().toISOString()).slice(0, 10))}${(n.tags || []).length ? ' · ' + n.tags.map(esc).join(', ') : ''}</small>
+    <small>${fmtDay((n.updated || n.created || new Date().toISOString()).slice(0, 10))}${(n.tags || []).length ? ' · ' + n.tags.map(esc).join(', ') : ''}${(() => { const k = db.filter('files', f => f.note === n.id).length; return k ? ` · ${icon('file', 11)} ${k}` : ''; })()}</small>
   </a>`;
 }
 
 // ---------- soubory ----------
 const MAX_LOCAL = 1.5 * 1024 * 1024;
-export function pickFiles(extra = {}, after = () => {}) {
+// velké fotky z telefonu zmenší (max 2000 px, JPEG), ať se rychle nahrají a nezabírají místo
+async function shrink(f) {
+  if (!/^image\/(jpeg|png|heic|heif|webp)$/i.test(f.type) || f.size < 1.2 * 1024 * 1024) return f;
+  try {
+    const bmp = await createImageBitmap(f);
+    const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+    if (!blob || blob.size >= f.size) return f;
+    return new File([blob], f.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch (e) { return f; }
+}
+export function pickFiles(extra = {}, after = () => {}, opts = {}) {
   const inp = document.createElement('input');
   inp.type = 'file';
-  inp.multiple = true;
+  inp.multiple = !opts.capture;
+  if (opts.accept) inp.accept = opts.accept;
+  if (opts.capture) inp.setAttribute('capture', opts.capture);
   inp.onchange = async () => {
-    for (const f of inp.files) {
+    for (const raw of inp.files) {
       try {
+        const f = await shrink(raw);
         if (canUpload()) {
           toast(`Nahrávám ${esc(f.name)}…`);
           const path = await uploadFile(f);
@@ -226,7 +243,7 @@ export function pickFiles(extra = {}, after = () => {}) {
           const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
           db.put('files', { name: f.name, size: f.size, type: f.type, dataUrl, added: new Date().toISOString(), ...extra });
         } else {
-          toast(`${esc(f.name)} je větší než 1,5 MB – přihlas se v Nastavení → Synchronizace a nahraje se do cloudu.`, 'warn long');
+          toast(`${esc(f.name)} je velký – nahraje se, až budeš online.`, 'warn long');
           continue;
         }
         toast(`Uloženo: ${esc(f.name)}`);
@@ -236,6 +253,18 @@ export function pickFiles(extra = {}, after = () => {}) {
   };
   inp.click();
 }
+// odkaz na náhled obrázku (podepsaná URL z cloudu, nebo data v zařízení)
+const urlCache = new Map();
+export async function thumbUrl(f) {
+  if (f.dataUrl) return f.dataUrl;
+  if (!f.path) return '';
+  const c = urlCache.get(f.path);
+  if (c && c.t > Date.now() - 50 * 60000) return c.u;
+  const u = await fileUrl(f.path);
+  urlCache.set(f.path, { u, t: Date.now() });
+  return u;
+}
+export const isImage = f => /^image\//.test(f.type || '') || /\.(jpe?g|png|webp|gif|heic)$/i.test(f.name || '');
 export async function openFile(f) {
   // okno otevřít hned při klepnutí (iPhone jinak po čekání na odkaz okno zablokuje)
   const w = window.open('', '_blank');
@@ -276,41 +305,72 @@ export async function handleFileAct(act, id, after) {
 // ---------- finance ----------
 export function editTx(t = {}, after = () => {}) {
   const type = t.type || 'out';
+  const accs = accounts();
+  const catList = ty => (ty === 'in' ? finIn() : finOut());
+  const fields = [
+    { k: 'type', label: 'Typ', type: 'chips', options: [{ v: 'out', l: 'Výdaj' }, { v: 'in', l: 'Příjem' }, ...(accs.length > 1 ? [{ v: 'transfer', l: 'Převod' }] : [])], def: type },
+    { k: 'amount', label: 'Částka (Kč)', type: 'number', step: '0.01', min: 0, req: true, ph: '0' },
+    { k: 'note', label: 'Za co / od koho', ph: 'Např. Albert, výplata, nájem' },
+    { k: 'cat', label: 'Kategorie', type: 'chips', options: catList(type === 'transfer' ? 'out' : type).map(c => ({ v: c.id, l: c.name, c: c.color })), def: t.cat || (t.note ? guessCat(t.note, type) : catList(type)[0].id) },
+    ...(accs.length ? [{ k: 'account', label: type === 'transfer' ? 'Z účtu' : 'Účet', type: 'select', half: true, options: accs.map(a => ({ v: a.id, l: a.name })), def: defaultAccount() }] : []),
+    ...(accs.length > 1 ? [{ k: 'toAccount', label: 'Na účet', type: 'select', half: true, options: accs.map(a => ({ v: a.id, l: a.name })), def: (accs.find(a => a.id !== defaultAccount()) || {}).id }] : []),
+    { k: 'date', label: 'Datum', type: 'date', half: true, def: today() },
+    { k: 'hustle', label: 'Projekt', type: 'select', half: true, options: [{ v: '', l: '—' }, ...hustles().map(h => ({ v: h.id, l: h.name }))] },
+  ];
   const s = openForm({
-    title: t.id ? 'Upravit pohyb' : (type === 'in' ? 'Nový příjem' : 'Nový výdaj'),
-    fields: [
-      { k: 'type', label: 'Typ', type: 'chips', options: [{ v: 'out', l: 'Výdaj' }, { v: 'in', l: 'Příjem' }], def: type },
-      { k: 'amount', label: 'Částka (Kč)', type: 'number', step: '1', min: 0, req: true, ph: '0' },
-      { k: 'cat', label: 'Kategorie', type: 'chips', options: (type === 'in' ? finIn() : finOut()).map(c => ({ v: c.id, l: c.name, c: c.color })), def: (type === 'in' ? finIn() : finOut())[0].id },
-      { k: 'date', label: 'Datum', type: 'date', half: true, def: today() },
-      { k: 'hustle', label: 'Projekt', type: 'select', half: true, options: [{ v: '', l: '—' }, ...hustles().map(h => ({ v: h.id, l: h.name }))] },
-      { k: 'note', label: 'Poznámka', ph: 'Za co' },
-    ],
+    title: t.id ? 'Upravit pohyb' : (type === 'in' ? 'Nový příjem' : type === 'transfer' ? 'Převod' : 'Nový výdaj'),
+    fields,
     values: t,
     onSave: v => {
       if (!(v.amount > 0)) { toast('Zadej částku', 'warn'); return false; }
-      const id = db.put('tx', { ...t, ...v });
+      if (v.type === 'transfer' && v.account === v.toAccount) { toast('Vyber dva různé účty', 'warn'); return false; }
+      const rec = { ...t, ...v };
+      if (v.type !== 'transfer') delete rec.toAccount; else delete rec.cat;
+      const id = db.put('tx', rec);
+      if (v.type !== 'transfer' && v.note && v.cat) learn(v.note, v.cat, v.type);
       if (!t.id) award('tx:' + id, 3, 'Finance');
       after();
     },
     onDelete: t.id ? () => { db.del(t.id); revoke('tx:' + t.id); after(); } : null,
   });
-  // přepnutí typu přestaví kategorie
   const form = s.body.querySelector('form');
-  form.querySelector('input[name="type"]').addEventListener('change', e => {
-    const list = e.target.value === 'in' ? finIn() : finOut();
+  const show = ty => {
+    const catF = form.querySelector('[data-chips="cat"]').closest('.field');
+    const to = form.querySelector('[name="toAccount"]');
+    catF.hidden = ty === 'transfer';
+    if (to) to.closest('.field').hidden = ty !== 'transfer';
+    const accL = form.querySelector('label[for="f_account"]');
+    if (accL) accL.textContent = ty === 'transfer' ? 'Z účtu' : 'Účet';
+  };
+  const setCats = (ty, pick) => {
+    const list = catList(ty === 'in' ? 'in' : 'out');
     const box = form.querySelector('[data-chips="cat"]');
-    box.innerHTML = list.map((c, i) => `<button type="button" class="chip ${i === 0 ? 'on' : ''}" data-v="${c.id}" style="--c:${c.color}"><i class="dot"></i>${esc(c.name)}</button>`).join('');
-    form.querySelector('input[name="cat"]').value = list[0].id;
-  });
+    const cur = pick && list.some(c => c.id === pick) ? pick : list[0].id;
+    box.innerHTML = list.map(c => `<button type="button" class="chip ${c.id === cur ? 'on' : ''}" data-v="${c.id}" style="--c:${c.color}"><i class="dot"></i>${esc(c.name)}</button>`).join('');
+    form.querySelector('input[name="cat"]').value = cur;
+  };
+  show(type);
+  form.querySelector('input[name="type"]').addEventListener('change', e => { setCats(e.target.value, guessCat(form.note.value, e.target.value)); show(e.target.value); });
+  let touched = !!t.cat;
+  form.querySelector('[data-chips="cat"]').addEventListener('click', () => { touched = true; });
+  form.note.addEventListener('change', () => { if (touched) return; const ty = form.querySelector('input[name="type"]').value; if (ty !== 'transfer') setCats(ty, guessCat(form.note.value, ty)); });
   return s;
 }
 export function txRow(t) {
+  if (t.type === 'transfer') {
+    const a = account(t.account), b = account(t.toAccount);
+    return `<div class="row tx" data-act="tx-edit" data-id="${t.id}">
+      <i class="cat-dot" style="--c:var(--mut)"></i>
+      <div class="row-main"><p class="row-title">${esc(t.note || 'Převod')}</p><p class="row-meta"><span>${esc(a ? a.name : '?')} → ${esc(b ? b.name : '?')}</span><span>${relDay(t.date)}</span></p></div>
+      <b class="amt muted">${money(t.amount)}</b>
+    </div>`;
+  }
   const list = t.type === 'in' ? finIn() : finOut();
   const c = list.find(x => x.id === t.cat) || { name: 'Ostatní', color: '#9AA7B4' };
+  const acc = accounts().length > 1 && t.account ? account(t.account) : null;
   return `<div class="row tx" data-act="tx-edit" data-id="${t.id}">
     <i class="cat-dot" style="--c:${c.color}"></i>
-    <div class="row-main"><p class="row-title">${esc(t.note || c.name)}</p><p class="row-meta"><span>${esc(c.name)}</span><span>${relDay(t.date)}</span></p></div>
+    <div class="row-main"><p class="row-title">${esc(t.note || c.name)}</p><p class="row-meta"><span>${esc(c.name)}</span><span>${relDay(t.date)}</span>${acc ? `<span>${esc(acc.name)}</span>` : ''}${t.rec ? `<span>${icon('sync', 11)} pravidelná</span>` : ''}</p></div>
     <b class="amt ${t.type === 'in' ? 'in' : ''}">${t.type === 'in' ? '+' : '−'}${money(t.amount)}</b>
   </div>`;
 }

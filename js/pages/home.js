@@ -7,6 +7,8 @@ import { has } from '../mods.js';
 import { blocksOn, statusFor, nowNext, weekStats, places, placeOn, setPlace, area, hrs, timer } from '../week-core.js';
 import { blockRow, blockMenu, toggleBlock, timerCard, startClock, handleTimerAct, budgetBars } from './week.js';
 import { weekday, addDays, mondayOf } from '../ui.js';
+import { pushOn, pushSupported } from '../reminders.js';
+import { getMeta, setMeta } from '../store.js';
 
 export function greeting(h = new Date().getHours()) {
   if (h >= 4 && h < 11) return 'Dobré ráno';
@@ -104,6 +106,8 @@ export default {
         <h2>${greeting()}${name}</h2>
       </section>
 
+      ${!pushOn() && pushSupported() && !getMeta('pushAskHidden') ? `<div class="panel banner"><span>${icon('bell', 22)}</span><div><b>Zapni upozornění</b><small>Připomínky bloků, večerního zápisu a plateb i při zamčeném telefonu.</small></div><a class="btn sm primary" href="#/settings/notify">Zapnout</a><button class="icon-btn sm" data-act="push-hide" aria-label="Skrýt">${icon('x', 14)}</button></div>` : ''}
+
       ${has('week') && isSun && !reviewed ? `<a class="panel banner" href="#/week/review">${icon('sunrise', 22)}<div><b>Neděle = příprava týdne</b><small>Jak dopadl týden + kde budeš příští dny. 15 minut.</small></div>${icon('right', 18)}</a>` : ''}
 
       ${has('game') ? `<section class="panel hud reactor">
@@ -185,6 +189,7 @@ export default {
       if (!b) return;
       const act = b.dataset.act, id = b.dataset.id;
       if (handleTimerAct(act, b, refresh)) return;
+      if (act === 'push-hide') { setMeta('pushAskHidden', true); refresh(); return; }
       if (act === 'b-done') { e.stopPropagation(); const blk = blocks.find(x => x.id === id); if (blk) { toggleBlock(blk, t); refresh(); } return; }
       if (act === 'b-menu') { const blk = blocks.find(x => x.id === id); if (blk) blockMenu(blk, t, refresh); return; }
       if (act === 'place') { setPlace(t, b.dataset.v); refresh(); return; }

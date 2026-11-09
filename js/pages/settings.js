@@ -1,14 +1,16 @@
 // Nastavení – profil, rutina, kategorie, synchronizace, záloha.
 import { db, profile, setProfile, exportAll, importAll, wipe, flush } from '../store.js';
-import { sync, syncNow, signOut, setPassword } from '../sync.js';
+import { sync, syncNow, signOut, setPassword, supa } from '../sync.js';
 import { mountAuth } from '../auth-ui.js';
 import { esc, icon, openForm, toast, confirmSheet, download, DAYS_SHORT, SWATCHES, sheet, bindChips, fieldHTML, readForm, today } from '../ui.js';
 import { cats, finOut, finIn, exportICS } from '../common.js';
 import { CAL_CATS, FIN_OUT, FIN_IN, ROUTINE_SUGGEST, MODULES, CLEAN_ACCENTS } from '../data/defaults.js';
 import { mods } from '../mods.js';
+import { lang, setLang, LANGS } from '../i18n.js';
+import { notifPrefs, pushOn, pushSupported, isStandalone, upcomingReminders, enablePush, disablePush, syncPushQueue } from '../reminders.js';
 import { applyTheme, UNLOCKS, unlocked } from '../game.js';
 
-const SUB = { profile: 'Profil & cíle', look: 'Vzhled', modules: 'Moduly', routines: 'Návyky', cats: 'Kategorie kalendáře', fincats: 'Kategorie financí', sync: 'Účet & synchronizace', notify: 'Připomínky', data: 'Záloha & data' };
+const SUB = { profile: 'Profil & cíle', look: 'Vzhled', modules: 'Moduly', routines: 'Návyky', cats: 'Kategorie kalendáře', fincats: 'Kategorie financí', sync: 'Účet & synchronizace', notify: 'Upozornění', data: 'Záloha & data' };
 const SLOTS = [['morning', 'Ráno'], ['day', 'Přes den'], ['evening', 'Večer']];
 
 export default {
@@ -28,12 +30,12 @@ export default {
     const items = [
       ['sync', 'lock', sync.user ? sync.user.email : 'nepřihlášen'],
       ['profile', 'settings', `${p.name || ''}${p.callName ? ` · „${p.callName}“` : ''}`],
-      ['look', 'eye', (p.style || 'hud') === 'hud' ? 'JARVIS' : 'Čistý'],
+      ['look', 'eye', `${(p.style || 'hud') === 'hud' ? 'JARVIS' : 'Čistý'} · ${lang() === 'en' ? 'English' : 'čeština'}`],
       ['modules', 'grid', `${mods().length} zapnutých`],
       ['routines', 'bolt', `${db.all('routine').length} bodů`],
       ['cats', 'calendar', `${cats().length} barev`],
       ['fincats', 'wallet', `${finOut().length + finIn().length} kategorií`],
-      ['notify', 'bell', 'Notification' in window ? ({ granted: 'zapnuté', denied: 'zablokované', default: 'vypnuté' }[Notification.permission]) : 'nepodporováno'],
+      ['notify', 'bell', pushOn() ? 'zapnutá' : 'vypnutá'],
       ['data', 'download', 'export, import, kalendář .ics'],
     ];
     root.innerHTML = `
@@ -227,28 +229,60 @@ function syncView(root, refresh) {
 
 // ---------- připomínky ----------
 function notifyView(root, refresh) {
-  const has = 'Notification' in window;
-  const perm = has ? Notification.permission : 'unsupported';
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const P = notifPrefs();
+  const on = pushOn();
+  const sup = pushSupported();
+  const st = isStandalone();
+  const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+  const next = upcomingReminders(48).slice(0, 6);
   root.innerHTML = `
+    <section class="panel hud">
+      <div class="panel-head"><h3>${icon('bell', 18)} Upozornění na telefon</h3><b class="${on ? 'green' : 'muted'}">${on ? 'zapnuté' : 'vypnuté'}</b></div>
+      <p class="small muted">Přijdou i při zamčeném telefonu a zavřené appce – posílá je server.</p>
+      ${!st && /iPhone|iPad/.test(navigator.userAgent) ? `<p class="small gold">${icon('info', 14)} Na iPhonu fungují jen v appce z plochy: Safari → Sdílet → Přidat na plochu, pak appku otevři odtamtud.</p>` : ''}
+      ${perm === 'denied' ? '<p class="small red">Upozornění jsou zablokovaná. Povol je v Nastavení iPhonu → Oznámení → Life Reset.</p>' : ''}
+      ${on ? `<div class="row-btns"><button class="btn ghost" data-act="off">Vypnout</button><button class="btn primary" data-act="test">${icon('bell', 18)} Poslat zkušební</button></div>`
+        : `<button class="btn primary big" data-act="on" ${sup ? '' : 'disabled'}>${icon('bell', 18)} Zapnout upozornění</button>`}
+    </section>
     <section class="panel">
-      <p>Připomínky událostí se ukazují jako upozornění, když je Life Reset otevřený nebo běží na pozadí. Každá událost má vlastní čas připomenutí.</p>
-      <p class="small muted">${standalone ? 'Aplikace je nainstalovaná na ploše.' : 'Tip: na iPhonu otevři v Safari → Sdílet → „Přidat na plochu“. Upozornění na iOS fungují jen v aplikaci z plochy.'}</p>
-      <p>Stav: <b>${{ granted: 'zapnuté', denied: 'zablokované v nastavení prohlížeče', default: 'vypnuté', unsupported: 'tento prohlížeč je nepodporuje' }[perm]}</b></p>
-      ${perm === 'default' ? `<button class="btn primary" data-act="ask">${icon('bell', 18)} Zapnout upozornění</button>` : ''}
-      ${perm === 'granted' ? `<button class="btn ghost" data-act="test">Vyzkoušet</button>` : ''}
-      <p class="small muted">Spolehlivější pro důležité věci: v Kalendáři „Exportovat do iPhonu (.ics)“ – připomínky pak hlídá systémový kalendář.</p>
+      <div class="panel-head"><h3>Co připomínat</h3></div>
+      <p class="small muted">Bloky rozvrhu a události mají vlastní čas připomenutí (u každého bloku / události).</p>
+      <form class="form" data-form="prefs">
+        <div class="field half"><label for="nCi">Večerní zápis</label><input id="nCi" type="time" name="checkin" value="${esc(P.checkin)}"><small class="hint">Prázdné = vypnuto</small></div>
+        <div class="field half"><label for="nHb">Ranní návyky</label><input id="nHb" type="time" name="habits" value="${esc(P.habits)}"><small class="hint">Prázdné = vypnuto</small></div>
+        <label class="check-field"><input type="checkbox" name="review" ${P.review ? 'checked' : ''}><span class="cbox">${icon('check', 14)}</span><span>Nedělní příprava týdne (18:00)</span></label>
+        <label class="check-field"><input type="checkbox" name="pay" ${P.pay ? 'checked' : ''}><span class="cbox">${icon('check', 14)}</span><span>Den před pravidelnou platbou</span></label>
+        <button class="btn primary">Uložit</button>
+      </form>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h3>Nejbližší připomínky</h3></div>
+      ${next.length ? next.map(r => `<div class="row"><span class="ev-time"><small>${r.at.toLocaleDateString(lang() === 'en' ? 'en-GB' : 'cs-CZ', { weekday: 'short' })}</small><br>${r.at.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</span><div class="row-main"><p class="row-title">${esc(r.title)}</p><p class="row-meta"><span>${esc(r.body)}</span></p></div></div>`).join('') : '<p class="muted small">V příštích 48 hodinách nic.</p>'}
     </section>`;
+  root.onsubmit = e => {
+    e.preventDefault();
+    const f = e.target;
+    setProfile({ notif: { checkin: f.checkin.value, habits: f.habits.value, review: f.review.checked, pay: f.pay.checked } });
+    toast('Uloženo');
+    syncPushQueue(true);
+    refresh();
+  };
   root.onclick = async e => {
     const b = e.target.closest('[data-act]');
     if (!b) return;
-    if (b.dataset.act === 'ask') { await Notification.requestPermission(); refresh(); }
-    if (b.dataset.act === 'test') {
-      const reg = await navigator.serviceWorker.getRegistration();
-      const p = profile();
-      const opts = { body: `Upozornění fungují${p.name ? ', ' + p.name : ''}.`, icon: 'icons/icon-192.png' };
-      if (reg) reg.showNotification('Life Reset', opts); else new Notification('Life Reset', opts);
-    }
+    const a = b.dataset.act;
+    b.disabled = true;
+    try {
+      if (a === 'on') { await enablePush(); toast('Upozornění zapnutá'); }
+      else if (a === 'off') { await disablePush(); toast('Vypnuto'); }
+      else if (a === 'test') {
+        const c = await supa();
+        const { error } = await c.from('lr_push_queue').upsert({ id: `${sync.user.id}:test:${Date.now()}`, user_id: sync.user.id, at: new Date().toISOString(), title: 'Life Reset', body: 'Upozornění fungují. Přijde to i při zamčeném telefonu.', url: './#/home' });
+        if (error) throw new Error(error.message);
+        toast('Odesláno – dorazí do minuty. Klidně zamkni telefon.', 'long');
+      }
+    } catch (err) { toast(esc(err.message || String(err)), 'warn long'); }
+    refresh();
   };
 }
 
@@ -308,6 +342,7 @@ function lookView(root, refresh) {
         <button class="style-card sc-clean ${style === 'clean' ? 'on' : ''}" data-act="style" data-v="clean"><span class="sc-prev"><i></i><i></i><i></i></span><b>Čistý</b><small>Jednoduchý</small></button>
       </div>
     </section>
+    <section class="panel"><div class="field"><label>Jazyk</label><div class="chips no-tr">${LANGS.map(l => `<button class="chip ${lang() === l.v ? 'on' : ''}" data-act="lang" data-v="${l.v}">${l.l}</button>`).join('')}</div></div></section>
     ${style === 'clean' ? `<section class="panel">
       <div class="field"><label>Barva</label><div class="chips">${CLEAN_ACCENTS.map(a => `<button class="chip ${(p.accent || 'blue') === a.id ? 'on' : ''}" data-act="accent" data-v="${a.id}" style="--c:${a.color}"><i class="dot"></i>${esc(a.name)}</button>`).join('')}</div></div>
       <div class="field"><label>Režim</label><div class="chips">${[['auto', 'Podle telefonu'], ['light', 'Světlý'], ['dark', 'Tmavý']].map(([v, l]) => `<button class="chip ${(p.mode || 'auto') === v ? 'on' : ''}" data-act="mode" data-v="${v}">${l}</button>`).join('')}</div></div>
@@ -319,6 +354,7 @@ function lookView(root, refresh) {
     const b = e.target.closest('[data-act]');
     if (!b) return;
     const a = b.dataset.act, v = b.dataset.v;
+    if (a === 'lang') { if (v !== lang()) { setLang(v); setProfile({ lang: v }); setTimeout(() => location.reload(), 300); } return; }
     if (a === 'theme' && b.classList.contains('locked')) { toast('Tohle je ještě zamčené.'); return; }
     setProfile({ [a]: v });
     applyTheme();

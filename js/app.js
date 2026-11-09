@@ -6,6 +6,8 @@ import { applyTheme, checkUnlocks, stats } from './game.js';
 import { $, icon, esc, sheetOpen } from './ui.js';
 import { scheduleReminders } from './common.js';
 import { postDueRecurring } from './money-core.js';
+import { syncPushQueue } from './reminders.js';
+import { startI18n, lang, setLang } from './i18n.js';
 
 import home from './pages/home.js';
 import calendar from './pages/calendar.js';
@@ -51,6 +53,8 @@ function parseHash() {
 
 function render(keepScroll = false) {
   const p = profile();
+  // jazyk z profilu (třeba po přihlášení na novém zařízení)
+  if (p && p.lang && p.lang !== lang()) { setLang(p.lang); location.reload(); return; }
   let { name, args } = parseHash();
   if (!currentUid()) { if (name !== 'welcome') { location.replace('#/welcome'); return; } }
   else if (!p || !p.v2) { if (name !== 'onboarding') { location.replace('#/onboarding'); return; } }
@@ -121,7 +125,7 @@ function boot() {
     render();
     setTimeout(() => bootEl.remove(), 600);
     setTimeout(() => { if (profile()) checkUnlocks(); }, 900);
-    setTimeout(() => { try { if (profile() && has('finance')) postDueRecurring(); } catch (e) { console.warn(e); } }, 3000);
+    setTimeout(() => { try { if (profile() && has('finance')) postDueRecurring(); } catch (e) { console.warn(e); } syncPushQueue(true); }, 3000);
   };
   bootEl.addEventListener('click', finish);
   const quick = reduce || !p || p.style === 'clean';
@@ -129,6 +133,7 @@ function boot() {
   setTimeout(finish, quick ? 350 : 2600);
 }
 
+startI18n();
 window.addEventListener('hashchange', () => render());
 // přihlášení / odhlášení / jiný účet → jiná data v zařízení
 window.addEventListener('lr:account', () => { if (sheetOpen()) return; applyTheme(); render(); scheduleReminders(); });

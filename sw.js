@@ -1,8 +1,8 @@
 // Service worker – aplikace funguje offline. Při každé nové verzi zvyš VERSION.
-const VERSION = 'lr-v2.2.0';
+const VERSION = 'lr-v2.3.0';
 const SHELL = [
   './', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css',
-  'js/app.js', 'js/auth-ui.js', 'js/mods.js', 'js/week-core.js', 'js/money-core.js', 'js/store.js', 'js/sync.js', 'js/game.js', 'js/ui.js', 'js/common.js',
+  'js/app.js', 'js/auth-ui.js', 'js/mods.js', 'js/week-core.js', 'js/money-core.js', 'js/reminders.js', 'js/i18n.js', 'js/store.js', 'js/sync.js', 'js/game.js', 'js/ui.js', 'js/common.js',
   'js/data/defaults.js', 'js/data/books.js', 'js/data/mealplan.js',
   'js/pages/home.js', 'js/pages/calendar.js', 'js/pages/tasks.js', 'js/pages/food.js', 'js/pages/map.js',
   'js/pages/diary.js', 'js/pages/hustles.js', 'js/pages/school.js', 'js/pages/archive.js', 'js/pages/gym.js',
@@ -37,8 +37,19 @@ self.addEventListener('fetch', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './#/home';
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
     const c = list.find(w => 'focus' in w);
-    return c ? c.focus() : self.clients.openWindow('./#/home');
+    if (c) { if ('navigate' in c) c.navigate(url).catch(() => {}); return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
+});
+
+// upozornění ze serveru (Web Push)
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { d = { title: 'Life Reset', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Life Reset', {
+    body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: d.tag || undefined, data: { url: d.url || './#/home' },
   }));
 });

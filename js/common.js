@@ -1,4 +1,5 @@
 // Sdílené formuláře a logika napříč stránkami (úkoly, události, poznámky, soubory, transakce).
+import { getMeta } from './store.js';
 import { db, profile } from './store.js';
 import { award, revoke } from './game.js';
 import { openForm, esc, icon, today, relDay, toast, download, money, fmtDay, parse, iso, addDays, diffDays } from './ui.js';
@@ -186,7 +187,8 @@ async function notify(e, d, key) {
   localStorage.setItem('lr:fired', JSON.stringify(fired));
   const body = `${e.allDay || !e.start ? 'Celý den' : e.start}${e.place ? ' · ' + e.place : ''}`;
   toast(`${icon('bell', 18)} <b>${esc(e.title)}</b> – ${esc(body)}`, 'long');
-  if ('Notification' in window && Notification.permission === 'granted') {
+  // když jsou zapnutá upozornění přes server, systémovou notifikaci pošle server (jinak by přišla dvakrát)
+  if ('Notification' in window && Notification.permission === 'granted' && !getMeta('pushOn')) {
     try {
       const reg = await navigator.serviceWorker.getRegistration();
       if (reg) reg.showNotification(e.title, { body, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: key });

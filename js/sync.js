@@ -228,3 +228,5 @@ export async function linkPreview(url) {
   if (data && data.error) throw new Error(data.error);
   return data;
 }
+
+export async function supa() { try { return await client(); } catch (e) { return null; } }

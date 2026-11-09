@@ -4,6 +4,7 @@ import { esc, icon, toast, $ } from '../ui.js';
 import { ROUTINE_SUGGEST, GYM_TEMPLATES, CAL_CATS, MODULES, defaultModules, AREA_SUGGEST, CLEAN_ACCENTS } from '../data/defaults.js';
 import { applyTheme } from '../game.js';
 import { signOut, sync } from '../sync.js';
+import { lang, setLang } from '../i18n.js';
 
 let step = 0;
 let st = null;
@@ -58,6 +59,7 @@ export default {
         <div class="form">
           <div class="field"><label for="obN">Jméno</label><input id="obN" data-k="name" value="${esc(st.name)}" placeholder="Např. Matyáš" autocomplete="given-name"></div>
           <div class="field"><label for="obC">Přivítání při spuštění (volitelné)</label><input id="obC" data-k="callName" value="${esc(st.callName)}" placeholder="Např. Master M"><small class="hint">„Welcome, …“</small></div>
+          <div class="field"><label>Jazyk</label><div class="chips no-tr"><button class="chip ${lang() === 'cs' ? 'on' : ''}" data-act="lang" data-v="cs">Čeština</button><button class="chip ${lang() === 'en' ? 'on' : ''}" data-act="lang" data-v="en">English</button></div></div>
         </div>`;
     } else if (k === 'style') {
       body = `<h2>Vyber styl</h2><p class="muted">Kdykoli přepneš v Nastavení → Vzhled.</p>
@@ -128,6 +130,7 @@ export default {
         if (k === 'name' && !st.name) { toast('Napiš jméno', 'warn'); return; }
         step++; refresh();
       } else if (act === 'back') { step = Math.max(0, step - 1); refresh(); }
+      else if (act === 'lang') { if (v !== lang()) { setLang(v); location.reload(); } }
       else if (act === 'style') { st.style = v; refresh(); }
       else if (act === 'accent') { st.accent = v; refresh(); }
       else if (act === 'mode') { st.mode = v; refresh(); }
@@ -172,7 +175,7 @@ function create() {
     modules: st.modules, places, placeDefault: (p && p.placeDefault) || (places.length ? Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map(d => [d, places[0]])) : {}),
     targets: st.targets, cats: (p && p.cats) || CAL_CATS,
     unlocked: (p && p.unlocked) || ['theme-arc'], lastLevel: (p && p.lastLevel) || 1, bestStreak: (p && p.bestStreak) || 0,
-    createdAt: (p && p.createdAt) || now, v2: true, lang: (p && p.lang) || 'cs', mealPlan: p ? (p.mealPlan ?? true) : false,
+    createdAt: (p && p.createdAt) || now, v2: true, lang: lang(), mealPlan: p ? (p.mealPlan ?? true) : false,
   });
   applyTheme();
   toast(`${icon('bolt', 18)} Připraveno${st.name ? `, ${esc(st.name)}` : ''}.`, 'gold long');

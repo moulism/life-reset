@@ -1,13 +1,13 @@
 // Service worker – aplikace funguje offline. Při každé nové verzi zvyš VERSION.
-const VERSION = 'lr-v2.3.0';
+const VERSION = 'lr-v2.4.0';
 const SHELL = [
   './', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css',
-  'js/app.js', 'js/auth-ui.js', 'js/mods.js', 'js/week-core.js', 'js/money-core.js', 'js/reminders.js', 'js/i18n.js', 'js/store.js', 'js/sync.js', 'js/game.js', 'js/ui.js', 'js/common.js',
+  'js/app.js', 'js/auth-ui.js', 'js/mods.js', 'js/week-core.js', 'js/money-core.js', 'js/reminders.js', 'js/i18n.js', 'js/social.js', 'js/store.js', 'js/sync.js', 'js/game.js', 'js/ui.js', 'js/common.js',
   'js/data/defaults.js', 'js/data/books.js', 'js/data/mealplan.js',
   'js/pages/home.js', 'js/pages/calendar.js', 'js/pages/tasks.js', 'js/pages/food.js', 'js/pages/map.js',
   'js/pages/diary.js', 'js/pages/hustles.js', 'js/pages/school.js', 'js/pages/archive.js', 'js/pages/gym.js',
   'js/pages/finance.js', 'js/pages/books.js', 'js/pages/notes.js', 'js/pages/shop.js', 'js/pages/settings.js',
-  'js/pages/onboarding.js', 'js/pages/week.js', 'js/pages/welcome.js', 'vendor/chart.umd.min.js', 'vendor/supabase.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
+  'js/pages/onboarding.js', 'js/pages/week.js', 'js/pages/welcome.js', 'js/pages/friends.js', 'vendor/chart.umd.min.js', 'vendor/supabase.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', e => {

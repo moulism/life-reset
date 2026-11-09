@@ -9,6 +9,7 @@ import { blockRow, blockMenu, toggleBlock, timerCard, startClock, handleTimerAct
 import { weekday, addDays, mondayOf } from '../ui.js';
 import { pushOn, pushSupported } from '../reminders.js';
 import { getMeta, setMeta } from '../store.js';
+import { cachedFriends, myStats, mondayOfD } from '../social.js';
 
 export function greeting(h = new Date().getHours()) {
   if (h >= 4 && h < 11) return 'Dobré ráno';
@@ -125,6 +126,8 @@ export default {
           ${has('food') ? `<li><span>Kalorie</span><b>${num(parts.kcal)}</b></li>` : ''}
         </ul>
       </section>` : ''}
+
+      ${has('friends') ? friendsMini() : ''}
 
       ${has('week') && (nn.now || nn.next) ? `<section class="nn-row">${nn.now ? card(nn.now, 'Teď') : ''}${nn.next ? card(nn.next, nn.minsTo <= 90 ? `Za ${nn.minsTo} min` : 'Další') : ''}</section>` : ''}
 
@@ -251,3 +254,18 @@ function num1l(ml) { return (ml / 1000).toFixed(ml % 1000 === 0 ? 0 : 2).replace
 
 function sleepVal(root) { const i = root.querySelector('#jSleep'); const v = i && parseFloat(String(i.value).replace(',', '.')); return v >= 0 ? v : null; }
 void hrs; void timer;
+
+function friendsMini() {
+  const fr = cachedFriends().filter(f => f.status === 'accepted');
+  const inc = cachedFriends().filter(f => f.direction === 'in').length;
+  if (!fr.length) return inc ? `<a class="panel banner" href="#/friends">${icon('bell', 22)}<div><b>Žádost o přátelství</b><small>Někdo tě chce přidat.</small></div>${icon('right', 18)}</a>` : '';
+  const mon = mondayOfD(today());
+  const me = myStats();
+  const rows = [{ name: 'ty', me: true, v: me.weekXP }, ...fr.map(f => ({ name: f.name, v: f.stats && f.stats.week === mon ? f.stats.weekXP || 0 : 0 }))].sort((a, b) => b.v - a.v);
+  const pos = rows.findIndex(r => r.me);
+  const ahead = pos > 0 ? rows[pos - 1] : null;
+  return `<a class="panel fr-mini" href="#/friends">
+    <b class="fr-pos ${pos === 0 ? 'p1' : ''}">${pos + 1}.</b>
+    <div><b>${pos === 0 ? 'Vedeš tento týden' : `${pos + 1}. z ${rows.length} tento týden`}</b><small>${ahead ? `Na ${esc(ahead.name)} ti chybí ${num(ahead.v - me.weekXP + 1)} XP` : `${num(me.weekXP)} XP · druhý má ${num(rows[1] ? rows[1].v : 0)}`}${inc ? ` · ${inc} nová žádost` : ''}</small></div>
+    ${icon('right', 18)}</a>`;
+}

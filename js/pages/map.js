@@ -4,9 +4,11 @@ import { stats, UNLOCKS, unlocked, RANKS, levelStart, applyTheme } from '../game
 import { esc, icon, num, clamp, today, sum, money, toast } from '../ui.js';
 import { planFor } from '../data/mealplan.js';
 import { has } from '../mods.js';
+import { cachedFriends } from '../social.js';
 import { weekStats, hrs } from '../week-core.js';
 
 const SECTIONS = [
+  { k: 'friends', name: 'Přátelé & soutěž', ic: 'star', c: '#FF9F43', info: () => { const n = cachedFriends().filter(f => f.status === 'accepted').length; return n ? `${n} přátel · žebříček týdne` : 'Přidej kamarády a soutěžte'; } },
   { k: 'week', name: 'Týden & hodiny', ic: 'clock', c: '#4FD8FF', info: () => { const w = weekStats(); return `${hrs(sum(w, a => a.done))} z ${hrs(sum(w, a => a.target))} tento týden`; } },
   { k: 'calendar', name: 'Kalendář', ic: 'calendar', c: '#4FD8FF', info: () => `${db.all('events').length} událostí` },
   { k: 'tasks', name: 'Úkoly', ic: 'tasks', c: '#6E8BFF', info: () => `${db.filter('tasks', t => !t.done).length} otevřených` },

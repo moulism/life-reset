@@ -34,6 +34,7 @@ export function levelOf(xp) {
 export const RANKS = [
   [1, 'Rekrut'], [3, 'Učeň'], [5, 'Operativec'], [8, 'Strážce noci'], [12, 'Temný rytíř'],
   [16, 'Miliardář ve stínu'], [20, 'Iron Legend'], [26, 'Transporter'], [32, 'Mistr systému'],
+  [40, 'Architekt'], [50, 'Legenda'], [62, 'Titán'], [75, 'Nesmrtelný'], [90, 'Mýtus'], [100, 'Bůh disciplíny'],
 ];
 export const rankOf = L => RANKS.filter(r => r[0] <= L).pop()[1];
 
@@ -88,6 +89,22 @@ export function dayScore(date, idx = buildIndex(), p = profile() || {}) {
 }
 export const STREAK_MIN = 60;
 
+// XP získané v tomto týdnu (Po–Ne) – podle toho se soutěží s přáteli
+export function weekXP(date = today()) {
+  const wd = weekday(date);
+  const mon = addDays(date, -((wd + 6) % 7));
+  return sum(db.all('xp').filter(x => x.date >= mon && x.date <= addDays(mon, 6)), x => x.amount);
+}
+export function weekAvgScore(date = today()) {
+  const idx = buildIndex();
+  const p = profile() || {};
+  const wd = weekday(date);
+  const mon = addDays(date, -((wd + 6) % 7));
+  const days = [];
+  for (let d = mon; d <= date; d = addDays(d, 1)) days.push(d);
+  return Math.round(sum(days, d => dayScore(d, idx, p).score) / days.length);
+}
+
 export function stats() {
   const p = profile() || {};
   const xp = sum(db.all('xp'), x => x.amount);
@@ -115,6 +132,11 @@ export function stats() {
     meals: db.all('meals').length,
     tx: db.all('tx').length,
     hours: Math.round((sum(db.all('blockday').filter(b => b.status === 'done'), b => b.mins) + sum(db.all('timelog'), t => t.mins)) / 60),
+    early: db.filter('xp', x => (x.ref || '').startsWith('early:')).length,
+    perfect: db.filter('xp', x => (x.ref || '').startsWith('score100:')).length,
+    friends: p.friendsCount || 0,
+    wins: p.weekWins || 0,
+    weekXP: weekXP(),
   };
 }
 
@@ -139,13 +161,53 @@ export const UNLOCKS = [
   { id: 'b-hours', kind: 'badge', name: 'Deep work', desc: '100 odpracovaných hodin', test: s => s.hours >= 100 },
   { id: 'b-l10', kind: 'badge', name: 'Level 10', desc: 'Dosáhni levelu 10', test: s => s.level >= 10 },
   { id: 'b-l20', kind: 'badge', name: 'Level 20', desc: 'Dosáhni levelu 20', test: s => s.level >= 20 },
+  { id: 'b-l30', kind: 'badge', name: 'Level 30', desc: 'Dosáhni levelu 30', test: s => s.level >= 30 },
+  { id: 'b-l50', kind: 'badge', name: 'Level 50', desc: 'Dosáhni levelu 50', test: s => s.level >= 50 },
+  { id: 'b-l100', kind: 'badge', name: 'Level 100', desc: 'Dosáhni levelu 100', test: s => s.level >= 100 },
+  { id: 'b-14', kind: 'badge', name: 'Dva týdny', desc: 'Série 14 dní', test: s => s.best >= 14 },
+  { id: 'b-60', kind: 'badge', name: 'Nezastavitelný', desc: 'Série 60 dní', test: s => s.best >= 60 },
+  { id: 'b-100', kind: 'badge', name: 'Stovka', desc: 'Série 100 dní', test: s => s.best >= 100 },
+  { id: 'b-365', kind: 'badge', name: 'Celý rok', desc: 'Série 365 dní', test: s => s.best >= 365 },
+  { id: 'b-perfect', kind: 'badge', name: 'Perfektní den', desc: 'Skóre dne 100', test: s => s.perfect >= 1 },
+  { id: 'b-perfect10', kind: 'badge', name: 'Stroj', desc: '10 dní se skóre 100', test: s => s.perfect >= 10 },
+  { id: 'b-early', kind: 'badge', name: 'Ranní ptáče', desc: '10× otevřeno před 8:00', test: s => s.early >= 10 },
+  { id: 'b-early50', kind: 'badge', name: 'Vstávám s jistotou', desc: '50× otevřeno před 8:00', test: s => s.early >= 50 },
+  { id: 'b-hours500', kind: 'badge', name: 'Workaholik', desc: '500 odpracovaných hodin', test: s => s.hours >= 500 },
+  { id: 'b-tx', kind: 'badge', name: 'Účetní', desc: '100 zapsaných pohybů', test: s => s.tx >= 100 },
+  { id: 'b-friend', kind: 'badge', name: 'Parťák', desc: 'Přidej kamaráda', test: s => s.friends >= 1 },
+  { id: 'b-friends5', kind: 'badge', name: 'Parta', desc: '5 přátel', test: s => s.friends >= 5 },
+  { id: 'b-win', kind: 'badge', name: 'Vítěz týdne', desc: 'Vyhraj týden mezi přáteli', test: s => s.wins >= 1 },
+  { id: 'b-win5', kind: 'badge', name: 'Šampion', desc: 'Vyhraj 5 týdnů', test: s => s.wins >= 5 },
+  { id: 'b-win20', kind: 'badge', name: 'Dynastie', desc: 'Vyhraj 20 týdnů', test: s => s.wins >= 20 },
 ];
 export function unlocked(s = stats()) { return UNLOCKS.filter(u => u.test(s)).map(u => u.id); }
+
+// bonusy: skvělý/perfektní den, všechny bloky dne, milníky série, ranní ptáče
+const STREAK_BONUS = [[3, 50], [7, 100], [14, 200], [30, 400], [60, 700], [100, 1000], [200, 2000], [365, 3650]];
+function bonuses(s) {
+  const t = today();
+  const sc = s.today.score;
+  const give = (ref, n, why) => { if (!db.find('xp', x => x.ref === ref)) { db.put('xp', { ref, amount: n, reason: why, date: t }); floatXP(n); toast(`${icon('bolt', 18)} <b>+${n} XP</b> · ${esc(why)}`, 'gold'); return true; } return false; };
+  let got = false;
+  if (sc >= 80) got = give('score80:' + t, 25, 'Skvělý den (80+)') || got;
+  if (sc >= 100) got = give('score100:' + t, 50, 'Perfektní den') || got;
+  const pb = s.today.parts.blocks;
+  if (pb && pb[1] && pb[0] >= pb[1]) got = give('allblocks:' + t, 20, 'Všechny bloky dne') || got;
+  if (s.streak) {
+    const start = addDays(t, -(s.streak - 1));
+    STREAK_BONUS.filter(([n]) => s.streak >= n).forEach(([n, x]) => { got = give(`streak${n}:${start}`, x, `Série ${n} dní`) || got; });
+  }
+  return got;
+}
+export function earlyBird() {
+  if (new Date().getHours() < 8 && profile()) award('early:' + today(), 10, 'Ranní ptáče');
+}
 
 export function checkUnlocks() {
   const p = profile();
   if (!p) return;
-  const s = stats();
+  let s = stats();
+  if (has('game', p) && bonuses(s)) s = stats();
   const now = unlocked(s);
   const seen = p.unlocked || [];
   const fresh = now.filter(id => !seen.includes(id));

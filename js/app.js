@@ -7,6 +7,8 @@ import { $, icon, esc, sheetOpen } from './ui.js';
 import { scheduleReminders } from './common.js';
 import { postDueRecurring } from './money-core.js';
 import { syncPushQueue } from './reminders.js';
+import { syncSocial, loadFriends } from './social.js';
+import { earlyBird } from './game.js';
 import { startI18n, lang, setLang } from './i18n.js';
 
 import home from './pages/home.js';
@@ -26,11 +28,12 @@ import shop from './pages/shop.js';
 import settings from './pages/settings.js';
 import onboarding from './pages/onboarding.js';
 import week from './pages/week.js';
+import friends from './pages/friends.js';
 import welcome from './pages/welcome.js';
 
-const ROUTES = { home, week, calendar, tasks, food, map, diary, hustles, school, archive, gym, finance, books, notes, shop, settings, onboarding, welcome };
+const ROUTES = { home, week, friends, calendar, tasks, food, map, diary, hustles, school, archive, gym, finance, books, notes, shop, settings, onboarding, welcome };
 // spodní lišta: Dnes, Týden, 2 nejdůležitější zapnuté moduly, Menu
-const TAB_CANDIDATES = [['tasks', 'Úkoly', 'tasks'], ['finance', 'Peníze', 'wallet'], ['calendar', 'Kalendář', 'calendar'], ['notes', 'Poznámky', 'note'], ['gym', 'Trénink', 'gym'], ['food', 'Jídlo', 'food'], ['shop', 'Nákupy', 'cart']];
+const TAB_CANDIDATES = [['friends', 'Přátelé', 'star'], ['finance', 'Peníze', 'wallet'], ['tasks', 'Úkoly', 'tasks'], ['calendar', 'Kalendář', 'calendar'], ['notes', 'Poznámky', 'note'], ['gym', 'Trénink', 'gym'], ['food', 'Jídlo', 'food'], ['shop', 'Nákupy', 'cart']];
 function tabs() {
   const t = [['home', 'Dnes', 'home']];
   if (has('week')) t.push(['week', 'Týden', 'clock']);
@@ -56,6 +59,10 @@ function render(keepScroll = false) {
   // jazyk z profilu (třeba po přihlášení na novém zařízení)
   if (p && p.lang && p.lang !== lang()) { setLang(p.lang); location.reload(); return; }
   let { name, args } = parseHash();
+  // pozvánka od kamaráda – schová se, dokud se člověk nepřihlásí a neprojde průvodcem
+  if (name === 'friends' && args[0] === 'add' && args[1] && (!currentUid() || !p || !p.v2)) { try { localStorage.setItem('lr:invite', args[1]); } catch (e) { /* */ } }
+  const inv = (() => { try { return localStorage.getItem('lr:invite'); } catch (e) { return null; } })();
+  if (inv && currentUid() && p && p.v2 && name === 'home') { localStorage.removeItem('lr:invite'); location.replace('#/friends/add/' + inv); return; }
   if (!currentUid()) { if (name !== 'welcome') { location.replace('#/welcome'); return; } }
   else if (!p || !p.v2) { if (name !== 'onboarding') { location.replace('#/onboarding'); return; } }
   else if (NO_CHROME.includes(name)) { location.replace('#/home'); return; }
@@ -125,7 +132,7 @@ function boot() {
     render();
     setTimeout(() => bootEl.remove(), 600);
     setTimeout(() => { if (profile()) checkUnlocks(); }, 900);
-    setTimeout(() => { try { if (profile() && has('finance')) postDueRecurring(); } catch (e) { console.warn(e); } syncPushQueue(true); }, 3000);
+    setTimeout(() => { try { if (profile() && has('finance')) postDueRecurring(); } catch (e) { console.warn(e); } syncPushQueue(true); if (profile() && has('game')) earlyBird(); if (profile() && has('friends')) syncSocial().then(() => loadFriends()).catch(() => {}); }, 3000);
   };
   bootEl.addEventListener('click', finish);
   const quick = reduce || !p || p.style === 'clean';

@@ -865,3 +865,29 @@ select { -webkit-appearance: none; appearance: none; background-image: url("data
 .inline-add.big.one { flex-wrap: nowrap; }
 .inline-add.big.one input { flex: 1 1 auto; }
 .pre { white-space: pre-line; }
+
+/* ---------- přátelé ---------- */
+.fr-av { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 50%; background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--c); border: 1.5px solid var(--c); font: 700 13px var(--f-head); }
+.fr-row { gap: 10px; }
+.fr-row.me { background: rgba(var(--acc-rgb), .08); border-radius: 12px; }
+.fr-pos { width: 22px; flex: none; text-align: center; font: 700 16px var(--f-head); color: var(--mut); }
+.fr-pos.p1 { color: var(--gold); } .fr-pos.p2 { color: #B8C4CE; } .fr-pos.p3 { color: #C98A5B; }
+.fr-val { font: 650 15px var(--f-head); white-space: nowrap; }
+.board-hint { margin: 0 0 8px; }
+.my-code { display: flex; align-items: center; gap: 8px; margin: 14px 0 8px; padding: 12px; border-radius: 14px; background: var(--panel2); }
+.my-code > div { flex: 1; display: flex; flex-direction: column; }
+.my-code small { color: var(--mut); font-size: 12px; }
+.my-code .code { font: 700 24px var(--f-head); letter-spacing: .18em; }
+.fr-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.fr-head .fr-av { width: 48px; height: 48px; font-size: 16px; }
+.fr-head > div { display: flex; flex-direction: column; }
+.cmp { display: grid; grid-template-columns: 1fr 70px 70px; gap: 8px; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 14px; align-items: center; }
+.cmp b { text-align: right; font: 600 15px var(--f-head); }
+.cmp.head { border-top: 0; color: var(--mut); }
+.cmp.head b { font-size: 12px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-mini { display: flex; align-items: center; gap: 12px; }
+.fr-mini > div { flex: 1; display: flex; flex-direction: column; }
+.fr-mini small { color: var(--mut); }
+.fr-mini .fr-pos { font-size: 22px; width: auto; }
+.panel.banner.win { border-color: rgba(224, 182, 90, .5); background: rgba(224, 182, 90, .1); }
+.panel.banner.win > .ic { color: var(--gold); }

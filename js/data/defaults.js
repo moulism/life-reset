@@ -74,6 +74,7 @@ export const MODULES = [
   { id: 'diary', name: 'Deník', ic: 'diary', c: '#B07CFF', desc: 'Večerní zápis, nálada a spánek', def: true },
   { id: 'books', name: 'Knihy', ic: 'book', c: '#FF9F43', desc: 'Knihovna, rozečtené a přečtené', def: false },
   { id: 'archive', name: 'Archiv souborů', ic: 'folder', c: '#E0B65A', desc: 'Doklady, smlouvy a hledání ve všem', def: false },
+  { id: 'friends', name: 'Přátelé & soutěž', ic: 'star', c: '#FF9F43', desc: 'Žebříček s kamarády – kdo je tento týden disciplinovanější', def: true },
   { id: 'game', name: 'XP, levely & série', ic: 'star', c: '#E0B65A', desc: 'Skóre dne, série, levely a odznaky', def: true },
 ];
 export const defaultModules = () => MODULES.filter(m => m.def).map(m => m.id);

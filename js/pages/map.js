@@ -81,7 +81,10 @@ export default {
       <section class="panel">
         <div class="panel-head"><h3>Jak získat XP</h3></div>
         <ul class="xp-list">
-          <li><span>Splněný blok rozvrhu</span><b>+10</b></li><li><span>Nedělní příprava týdne</span><b>+40</b></li>
+          <li><span>Splněný blok rozvrhu</span><b>+10</b></li><li><span>Všechny bloky dne</span><b>+20</b></li>
+          <li><span>Skvělý den (skóre 80+)</span><b>+25</b></li><li><span>Perfektní den (100)</span><b>+50</b></li>
+          <li><span>Série 3 / 7 / 14 / 30 / 60 / 100 dní</span><b>+50 až +1000</b></li><li><span>Ranní ptáče (před 8:00)</span><b>+10</b></li>
+          <li><span>Nedělní příprava týdne</span><b>+40</b></li><li><span>Vítěz týdne mezi přáteli</span><b>+150</b></li>
           <li><span>Bod rutiny</span><b>+10</b></li><li><span>Celá rutina za den</span><b>+25</b></li>
           <li><span>Úkol (vysoká priorita)</span><b>+15 (+25)</b></li><li><span>Zápis do deníku</span><b>+25</b></li>
           <li><span>Trénink / fotbal</span><b>+40</b></li><li><span>Splněné kalorie za den</span><b>+20</b></li>

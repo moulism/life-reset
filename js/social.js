@@ -17,7 +17,7 @@ export function myStats() {
   const mon = mondayOfD(t);
   const p = profile() || {};
   return {
-    level: s.level, xp: s.xp, rank: s.rank, streak: s.streak, best: s.best,
+    level: s.level, xp: s.xp, rank: s.rank, title: s.title, streak: s.streak, best: s.best,
     score: s.today.score, day: t, week: mon, weekXP: s.weekXP, weekAvg: weekAvgScore(t),
     prevWeek: { week: addDays(mon, -7), xp: weekXP(addDays(mon, -1)) },
     badges: unlocked(s).filter(id => id.startsWith('b-')).length, wins: p.weekWins || 0,

@@ -29,6 +29,9 @@
 [data-theme="wayne"] { --acc: #E0B65A; --acc-rgb: 224, 182, 90; --acc-ink: #1A1206; --gold: #F3D58A; --bg: #0B0A08; --bg2: #13110D; --panel: rgba(28, 24, 17, .8); --panel2: #1A1711; --line: rgba(224, 182, 90, .16); --line2: rgba(224, 182, 90, .3); }
 [data-theme="stark"] { --acc: #FF4D5E; --acc-rgb: 255, 77, 94; --acc-ink: #1C0306; --gold: #F2C14E; --bg: #0D0809; --bg2: #160C0E; --panel: rgba(32, 16, 19, .8); --panel2: #1F1013; --line: rgba(255, 110, 120, .16); --line2: rgba(255, 110, 120, .3); }
 [data-theme="steel"] { --acc: #A9C1D6; --acc-rgb: 169, 193, 214; --acc-ink: #0B1117; --gold: #D9B26C; --bg: #0A0C0E; --bg2: #111418; --panel: rgba(24, 28, 33, .82); --panel2: #171B20; --line: rgba(169, 193, 214, .15); --line2: rgba(169, 193, 214, .3); }
+[data-theme="emerald"] { --acc: #2EE59D; --acc-rgb: 46, 229, 157; --acc-ink: #03170F; --gold: #E0C35A; --bg: #060D0A; --bg2: #0B1611; --panel: rgba(14, 30, 23, .8); --panel2: #0F1F18; --line: rgba(46, 229, 157, .15); --line2: rgba(46, 229, 157, .3); }
+[data-theme="carbon"] { --acc: #F2F4F7; --acc-rgb: 242, 244, 247; --acc-ink: #0A0A0B; --gold: #E0B65A; --bg: #050506; --bg2: #0D0D0F; --panel: rgba(22, 22, 25, .82); --panel2: #151518; --line: rgba(242, 244, 247, .12); --line2: rgba(242, 244, 247, .26); }
+[data-theme="solar"] { --acc: #FF8A1F; --acc-rgb: 255, 138, 31; --acc-ink: #1E0D00; --gold: #FFD166; --bg: #0E0804; --bg2: #180E06; --panel: rgba(36, 20, 9, .8); --panel2: #22140A; --line: rgba(255, 138, 31, .16); --line2: rgba(255, 138, 31, .32); }
 [data-theme="gotham"] { --acc: #8C7CFF; --acc-rgb: 140, 124, 255; --acc-ink: #0B0820; --gold: #E0B65A; --bg: #07070D; --bg2: #0E0D18; --panel: rgba(20, 18, 36, .8); --panel2: #15132A; --line: rgba(140, 124, 255, .16); --line2: rgba(140, 124, 255, .32); }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -595,6 +598,10 @@ select { -webkit-appearance: none; appearance: none; background-image: url("data
 .th-stark .th-sw { background: linear-gradient(90deg, #160C0E, #FF4D5E 60%, #F2C14E); }
 .th-steel .th-sw { background: linear-gradient(90deg, #0A0C0E, #A9C1D6); }
 .th-gotham .th-sw { background: linear-gradient(90deg, #07070D, #8C7CFF); }
+.th-emerald .th-sw { background: linear-gradient(90deg, #060D0A, #2EE59D); }
+.th-carbon .th-sw { background: linear-gradient(90deg, #050506, #F2F4F7); }
+.th-solar .th-sw { background: linear-gradient(90deg, #0E0804, #FF8A1F 60%, #FFD166); }
+.chip.locked { opacity: .5; }
 .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
 .badge { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 12px 6px; border: 1px solid var(--line); border-radius: 12px; text-align: center; color: var(--dim); }
 .badge b { font: 600 13px var(--f-head); }
@@ -891,3 +898,25 @@ select { -webkit-appearance: none; appearance: none; background-image: url("data
 .fr-mini .fr-pos { font-size: 22px; width: auto; }
 .panel.banner.win { border-color: rgba(224, 182, 90, .5); background: rgba(224, 182, 90, .1); }
 .panel.banner.win > .ic { color: var(--gold); }
+
+/* odměny & tituly */
+.rank .kpis { grid-template-columns: repeat(4, 1fr); }
+.title-tag { display: inline-block; margin-left: 6px; padding: 2px 8px; border: 1px solid var(--line2); border-radius: 99px; font: 600 11px var(--f-head); letter-spacing: .08em; text-transform: uppercase; color: var(--gold); vertical-align: middle; }
+.nudge-form { display: flex; gap: 8px; margin: 8px 0 4px; }
+.nudge-form input { flex: 1; min-width: 0; }
+
+/* ---------- pevný rám aplikace ----------
+   Stránka sama nescrolluje – scrolluje jen #view. Spodní lišta je součástí rámu, ne position: fixed
+   nad scrollující stránkou, takže ji iOS (dynamická lišta Safari / PWA) nemůže posunout doprostřed. */
+html, body { height: 100%; }
+body { overflow: hidden; }
+#app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+#top { position: relative; flex: none; }
+#view {
+  flex: 1 1 auto; min-height: 0; max-width: none; margin: 0;
+  overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
+  padding: 6px max(16px, calc(50% - 344px)) 28px;
+}
+body[data-page="onboarding"] #view { padding-bottom: 40px; }
+#tabs { position: relative; flex: none; left: auto; right: auto; bottom: auto; }
+body.has-sheet #view { overflow: hidden; }

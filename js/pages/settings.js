@@ -344,18 +344,18 @@ function lookView(root, refresh) {
     </section>
     <section class="panel"><div class="field"><label>Jazyk</label><div class="chips no-tr">${LANGS.map(l => `<button class="chip ${lang() === l.v ? 'on' : ''}" data-act="lang" data-v="${l.v}">${l.l}</button>`).join('')}</div></div></section>
     ${style === 'clean' ? `<section class="panel">
-      <div class="field"><label>Barva</label><div class="chips">${CLEAN_ACCENTS.map(a => `<button class="chip ${(p.accent || 'blue') === a.id ? 'on' : ''}" data-act="accent" data-v="${a.id}" style="--c:${a.color}"><i class="dot"></i>${esc(a.name)}</button>`).join('')}</div></div>
+      <div class="field"><label>Barva <small class="muted">· další odemykáš levely a sériemi</small></label><div class="chips">${CLEAN_ACCENTS.map(a => { const u = UNLOCKS.find(x => x.id === 'acc-' + a.id); const ok = !u || un.includes(u.id); return `<button class="chip ${(p.accent || 'blue') === a.id ? 'on' : ''} ${ok ? '' : 'locked'}" data-act="accent" data-v="${a.id}" ${ok ? '' : `data-why="${esc(u.desc)}"`} style="--c:${a.color}">${ok ? '<i class="dot"></i>' : icon('lock', 12)}${esc(a.name)}</button>`; }).join('')}</div></div>
       <div class="field"><label>Režim</label><div class="chips">${[['auto', 'Podle telefonu'], ['light', 'Světlý'], ['dark', 'Tmavý']].map(([v, l]) => `<button class="chip ${(p.mode || 'auto') === v ? 'on' : ''}" data-act="mode" data-v="${v}">${l}</button>`).join('')}</div></div>
     </section>` : `<section class="panel">
       <div class="panel-head"><h3>Barvy</h3><small class="muted">odemykáš levely a sériemi</small></div>
-      <div class="theme-grid">${themes.map(t => { const ok = un.includes(t.id); const v = t.id.replace('theme-', ''); return `<button class="theme-tile th-${v} ${(p.theme || 'arc') === v ? 'on' : ''} ${ok ? '' : 'locked'}" data-act="theme" data-v="${v}"><i class="th-sw"></i><b>${esc(t.name)}</b><small>${ok ? ((p.theme || 'arc') === v ? 'aktivní' : 'použít') : `${icon('lock', 12)} ${esc(t.desc)}`}</small></button>`; }).join('')}</div>
+      <div class="theme-grid">${themes.map(t => { const ok = un.includes(t.id); const v = t.id.replace('theme-', ''); return `<button class="theme-tile th-${v} ${(p.theme || 'arc') === v ? 'on' : ''} ${ok ? '' : 'locked'}" data-act="theme" data-v="${v}" data-why="${esc(t.desc)}"><i class="th-sw"></i><b>${esc(t.name)}</b><small>${ok ? ((p.theme || 'arc') === v ? 'aktivní' : 'použít') : `${icon('lock', 12)} ${esc(t.desc)}`}</small></button>`; }).join('')}</div>
     </section>`}`;
   root.onclick = e => {
     const b = e.target.closest('[data-act]');
     if (!b) return;
     const a = b.dataset.act, v = b.dataset.v;
     if (a === 'lang') { if (v !== lang()) { setLang(v); setProfile({ lang: v }); setTimeout(() => location.reload(), 300); } return; }
-    if (a === 'theme' && b.classList.contains('locked')) { toast('Tohle je ještě zamčené.'); return; }
+    if ((a === 'theme' || a === 'accent') && b.classList.contains('locked')) { toast(`Zamčeno · ${esc(b.dataset.why || 'odemkneš později')}`); return; }
     setProfile({ [a]: v });
     applyTheme();
     refresh();

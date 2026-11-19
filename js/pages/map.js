@@ -1,6 +1,6 @@
 // Mapa systému – rozcestník všech sekcí + level, hodnost a odemčené věci.
 import { db, profile, setProfile } from '../store.js';
-import { stats, UNLOCKS, unlocked, RANKS, levelStart, applyTheme } from '../game.js';
+import { stats, UNLOCKS, unlocked, RANKS, levelStart, applyTheme, nextRewards, KIND_LABEL, STREAK_MIN, SHIELD_MAX } from '../game.js';
 import { esc, icon, num, clamp, today, sum, money, toast } from '../ui.js';
 import { planFor } from '../data/mealplan.js';
 import { has } from '../mods.js';
@@ -35,13 +35,14 @@ export default {
     const nextRank = RANKS.find(r => r[0] > s.level);
     const themes = UNLOCKS.filter(u => u.kind === 'theme');
     const badges = UNLOCKS.filter(u => u.kind === 'badge');
+    const titles = UNLOCKS.filter(u => u.kind === 'title');
     const G = has('game');
     root.innerHTML = `
       ${G ? `<section class="panel hud rank">
         <div class="rank-top">
           <div class="rank-lvl"><small>LEVEL</small><b>${s.level}</b></div>
           <div class="rank-main">
-            <h2>${esc(s.rank)}</h2>
+            <h2>${esc(s.rank)}${s.title ? ` <small class="title-tag">${esc(s.title)}</small>` : ''}</h2>
             <p class="muted">${num(s.xp)} XP celkem · ${nextRank ? `další hodnost „${esc(nextRank[1])}“ na levelu ${nextRank[0]}` : 'nejvyšší hodnost'}</p>
             <div class="bar"><i style="width:${pct}%"></i></div>
             <p class="small muted">${num(s.xp - s.cur)} / ${num(s.next - s.cur)} XP do levelu ${s.level + 1}</p>
@@ -51,6 +52,7 @@ export default {
           <div><span>Série</span><b>${s.streak}${icon('flame', 16)}</b></div>
           <div><span>Nejdelší</span><b>${s.best}</b></div>
           <div><span>Dnes</span><b>${s.today.score}<small>/100</small></b></div>
+          <div><span>Štíty</span><b>${s.shields}<small>/${SHIELD_MAX}</small></b></div>
         </div>
         ${p.why ? `<p class="why">„${esc(p.why)}“</p>` : ''}
       </section>` : ''}
@@ -68,12 +70,24 @@ export default {
         <div class="theme-grid">${themes.map(t => {
           const ok = un.includes(t.id);
           const v = t.id.replace('theme-', '');
-          return `<button class="theme-tile th-${v} ${p.theme === v ? 'on' : ''} ${ok ? '' : 'locked'}" data-act="theme" data-v="${v}" ${ok ? '' : 'aria-disabled="true"'}>
+          return `<button class="theme-tile th-${v} ${p.theme === v ? 'on' : ''} ${ok ? '' : 'locked'}" data-act="theme" data-v="${v}" data-why="${esc(t.desc)}" ${ok ? '' : 'aria-disabled="true"'}>
             <i class="th-sw"></i><b>${esc(t.name)}</b><small>${ok ? (p.theme === v ? 'aktivní' : 'použít') : `${icon('lock', 12)} ${esc(t.desc)}`}</small></button>`;
         }).join('')}</div>
       </section>` : ''}
 
       ${G ? `<section class="panel">
+        <div class="panel-head"><h3>${icon('target', 18)} Další odměny</h3></div>
+        ${nextRewards(s).map(u => `<div class="row"><span class="muted">${icon('lock', 16)}</span><div class="row-main"><p class="row-title">${esc(u.name)}</p><p class="row-meta"><span>${esc(KIND_LABEL[u.kind])}</span><span>${esc(u.desc)}</span></p></div></div>`).join('') || '<p class="muted">Máš odemčené všechno. Legenda.</p>'}
+        <p class="small muted">Za každý nový level dostaneš i štít série (max ${SHIELD_MAX}).</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h3>${icon('star', 18)} Titul</h3><small class="muted">vidí ho i kamarádi</small></div>
+        <div class="chips">${titles.map(t => { const ok = un.includes(t.id); const on = (p.title || '') === t.id; return `<button class="chip ${on ? 'on' : ''} ${ok ? '' : 'locked'}" data-act="title" data-v="${t.id}" data-why="${esc(t.desc)}">${ok ? '' : icon('lock', 12)}${esc(t.name)}</button>`; }).join('')}</div>
+        <p class="small muted">Bez titulu se ukazuje hodnost podle levelu. Klikni na aktivní titul pro zrušení.</p>
+      </section>
+
+      <section class="panel">
         <div class="panel-head"><h3>${icon('star', 18)} Odznaky</h3><small class="muted">${badges.filter(b => un.includes(b.id)).length}/${badges.length}</small></div>
         <div class="badge-grid">${badges.map(b => `<div class="badge ${un.includes(b.id) ? 'on' : ''}">${icon(un.includes(b.id) ? 'star' : 'lock', 20)}<b>${esc(b.name)}</b><small>${esc(b.desc)}</small></div>`).join('')}</div>
       </section>
@@ -88,12 +102,24 @@ export default {
           <li><span>Čtení (za den)</span><b>+10</b></li><li><span>Dočtená kniha</span><b>+100</b></li>
           <li><span>Splněný cíl projektu</span><b>+50</b></li><li><span>Vážení, výdaj, rychlý zápis</span><b>+2 až +5</b></li>
         </ul>
-        <p class="small muted">Level ${s.level + 1} potřebuje ${num(levelStart(s.level + 1))} XP celkem. Den se počítá do série při skóre 60+.</p>
+        <p class="small muted">Level ${s.level + 1} potřebuje ${num(levelStart(s.level + 1))} XP celkem.</p>
+      </section>
+
+      <section class="panel" id="serie">
+        <div class="panel-head"><h3>${icon('flame', 18)} Jak funguje série</h3></div>
+        <p>Den se počítá do série, když má <b>skóre ${STREAK_MIN}+</b>. Skóre je podíl splněného z toho, co máš na ten den:</p>
+        <ul class="xp-list">
+          <li><span>Bloky z Týdne</span><b>35 %</b></li><li><span>Návyky (rutina)</span><b>30 %</b></li>
+          <li><span>Úkoly s termínem na dnes</span><b>15 %</b></li><li><span>Deník</span><b>10 %</b></li>
+          <li><span>Kalorie (jen když jídlo zapisuješ)</span><b>10 %</b></li><li><span>Trénink</span><b>bonus</b></li>
+        </ul>
+        <p class="small muted">Během dne se počítá jen to, co už mělo proběhnout: blok až po svém konci, odpolední návyky od 12:00, večerní návyky a deník od 20:00. Co nemáš (žádné úkoly na dnes, nezapisuješ jídlo), se nepočítá vůbec. Den končí ve 4:00 ráno, takže večerní věci odškrtnuté po půlnoci patří ještě ke včerejšku. Když den vynecháš, automaticky ho pokryje štít série.</p>
       </section>` : ''}`;
     root.onclick = e => {
-      const b = e.target.closest('[data-act="theme"]');
+      const b = e.target.closest('[data-act="theme"], [data-act="title"]');
       if (!b) return;
-      if (b.classList.contains('locked')) { toast('Tohle je ještě zamčené.'); return; }
+      if (b.classList.contains('locked')) { toast(`Zamčeno · ${esc(b.dataset.why || 'odemkneš později')}`); return; }
+      if (b.dataset.act === 'title') { setProfile({ title: (p.title || '') === b.dataset.v ? '' : b.dataset.v }); refresh(); return; }
       setProfile({ theme: b.dataset.v });
       applyTheme();
       refresh();

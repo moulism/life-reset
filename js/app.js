@@ -68,7 +68,7 @@ function render(keepScroll = false) {
   else if (NO_CHROME.includes(name)) { location.replace('#/home'); return; }
   const mod = ROUTES[name];
   const view = $('#view');
-  const y = window.scrollY;
+  const y = view.scrollTop;
   const same = current.name === name && current.args.join('/') === args.join('/');
   current = { name, args };
   document.body.dataset.page = name;
@@ -84,7 +84,7 @@ function render(keepScroll = false) {
   }
   renderTop(mod, name, args);
   renderTabs(name);
-  if (keepScroll && same) window.scrollTo(0, y); else window.scrollTo(0, 0);
+  view.scrollTop = keepScroll && same ? y : 0;
 }
 
 function syncDot() {

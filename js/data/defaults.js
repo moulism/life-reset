@@ -96,4 +96,10 @@ export const CLEAN_ACCENTS = [
   { id: 'violet', name: 'Fialová', color: '#7B5CFF' },
   { id: 'orange', name: 'Oranžová', color: '#F2731C' },
   { id: 'graphite', name: 'Grafit', color: '#3A4250' },
+  { id: 'teal', name: 'Tyrkysová', color: '#0E9F9A' },
+  { id: 'red', name: 'Červená', color: '#E5484D' },
+  { id: 'pink', name: 'Růžová', color: '#E2457E' },
+  { id: 'gold', name: 'Zlatá', color: '#C2902A' },
+  { id: 'ice', name: 'Ledová', color: '#2BA8E0' },
+  { id: 'emerald', name: 'Smaragdová', color: '#04885F' },
 ];

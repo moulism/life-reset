@@ -1,7 +1,7 @@
 // Týden & hodiny – data a výpočty (bloky v týdenní šabloně, místa, plán vs. skutečnost, stopky).
 // Kolekce: areas, blocks, blockday, timelog, weekplan, timer.
 import { db, profile } from './store.js';
-import { today, addDays, weekday, mondayOf, sum } from './ui.js';
+import { today, addDays, weekday, mondayOf, sum, dayMins } from './ui.js';
 
 export const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -112,7 +112,7 @@ export function logTime(areaId, mins, date = today(), note = '') {
 
 // ---------- „teď / další“ ----------
 export function nowNext(date = today()) {
-  const nowM = new Date().getHours() * 60 + new Date().getMinutes();
+  const nowM = dayMins();
   const list = blocksOn(date).filter(b => b.start);
   let now = null, next = null;
   list.forEach(b => {

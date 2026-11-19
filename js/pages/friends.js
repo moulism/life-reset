@@ -63,12 +63,13 @@ export default {
       ${fr.length ? `
       ${segTabs(BOARDS.map(b => [b[0], b[1]]), tab)}
       <section class="panel hud board">
+        ${tab === 'today' || tab === 'streak' ? `<p class="small board-hint">${icon('flame', 14)} Skóre dne = podíl splněného z toho, co už dnes mělo proběhnout. Série = dny se skóre 50+. <a class="link" href="#/map">Jak se to počítá</a></p>` : ''}
         ${ahead && tab === 'week' ? `<p class="small board-hint">${icon('target', 14)} Na ${esc(ahead.name)} ti chybí <b>${num(ahead.v - rows[myPos].v + 1)} XP</b>. Týden končí v neděli o půlnoci.</p>` : (myPos === 0 && rows.length > 1 ? `<p class="small board-hint gold">${icon('star', 14)} Vedeš! Udrž to.</p>` : '')}
         ${rows.map((r, i) => `<button class="row fr-row ${r.me ? 'me' : ''}" ${r.me ? '' : `data-act="friend" data-id="${r.user_id}"`}>
           <b class="fr-pos ${i === 0 ? 'p1' : i === 1 ? 'p2' : i === 2 ? 'p3' : ''}">${i + 1}</b>
           ${avatar(r.name, r.me ? 'var(--acc)' : r.color)}
           <div class="row-main"><p class="row-title">${esc(r.me ? `${r.name} (ty)` : r.name || 'Bez jména')}</p>
-            <p class="row-meta"><span>Lvl ${r.stats.level || 1} · ${esc(r.stats.rank || '')}</span><span>${r.stats.streak || 0}${icon('flame', 11)}</span>${!r.me && r.updated_at ? `<span>${esc(relDay(String(r.updated_at).slice(0, 10)).toLowerCase())}</span>` : ''}</p></div>
+            <p class="row-meta"><span>Lvl ${r.stats.level || 1} · ${esc(r.stats.title || r.stats.rank || '')}</span><span>${r.stats.streak || 0}${icon('flame', 11)}</span>${!r.me && r.updated_at ? `<span>${esc(relDay(String(r.updated_at).slice(0, 10)).toLowerCase())}</span>` : ''}</p></div>
           <b class="fr-val">${fmt(r.v, r.stats)}</b>
         </button>`).join('')}
       </section>` : `<section class="panel"><div class="panel-head"><h3>${icon('star', 18)} Soutěž s kamarády</h3></div>
@@ -140,7 +141,7 @@ function friendSheet(f, after) {
   const NUDGES = ['Hej, makej! 💪', 'Dneska tě předběhnu.', 'Kde je tvoje série?', 'Jdu do gymu, a ty?'];
   const sh = sheet({
     title: f.name || 'Kamarád',
-    body: `<div class="fr-head">${avatar(f.name, f.color)}<div><b>Lvl ${s.level || 1} · ${esc(s.rank || '')}</b><small class="muted">${num(s.xp || 0)} XP · ${s.badges || 0} odznaků · ${s.wins || 0}× vítěz týdne</small></div></div>
+    body: `<div class="fr-head">${avatar(f.name, f.color)}<div><b>Lvl ${s.level || 1} · ${esc(s.title || s.rank || '')}</b><small class="muted">${num(s.xp || 0)} XP · ${s.badges || 0} odznaků · ${s.wins || 0}× vítěz týdne</small></div></div>
       <div class="cmp head"><span></span><b>Ty</b><b>${esc(f.name || 'On')}</b></div>
       ${cmp('XP tento týden', mine.weekXP, fresh(s) ? s.weekXP || 0 : 0)}
       ${cmp('Skóre dnes', mine.score, s.day === today() ? s.score || 0 : 0)}
@@ -148,15 +149,25 @@ function friendSheet(f, after) {
       ${cmp('Série', mine.streak, s.streak || 0)}
       ${cmp('Nejdelší série', mine.best, s.best || 0)}
       ${cmp('Level', mine.level, s.level || 1)}
-      <h4 class="sub">Popíchnout</h4>
+      <h4 class="sub">Napsat zprávu</h4>
+      <form class="nudge-form" data-form="msg"><input name="msg" maxlength="140" placeholder="Tvoje zpráva…" autocomplete="off" aria-label="Zpráva pro kamaráda"><button class="btn primary sm">Poslat</button></form>
       <div class="chips">${NUDGES.map((n, i) => `<button class="chip" data-n="${i}">${esc(n)}</button>`).join('')}</div>
-      <p class="small muted">Přijde mu to jako upozornění (max 1× za hodinu).</p>
+      <p class="small muted">Přijde mu to jako upozornění (max 1 zpráva za hodinu, do 140 znaků).</p>
       <p class="small center"><button class="link red" data-rm>Odebrat z přátel</button></p>`,
   });
+  const send = async msg => { await nudge(f.user_id, msg); toast('Odesláno'); sh.close(); };
+  sh.body.onsubmit = async e => {
+    e.preventDefault();
+    const v = e.target.msg.value.trim();
+    if (!v) { e.target.msg.focus(); return; }
+    const btn = e.target.querySelector('button');
+    btn.disabled = true;
+    try { await send(v); } catch (err) { toast(esc(err.message), 'warn long'); btn.disabled = false; }
+  };
   sh.body.onclick = async e => {
     const n = e.target.closest('[data-n]');
     try {
-      if (n) { await nudge(f.user_id, NUDGES[Number(n.dataset.n)]); toast('Odesláno'); sh.close(); }
+      if (n) await send(NUDGES[Number(n.dataset.n)]);
       else if (e.target.closest('[data-rm]')) {
         sh.close();
         if (await confirmSheet(`Odebrat ${f.name || 'kamaráda'} z přátel?`, 'Odebrat')) { await respond(f.user_id, false); after(); }

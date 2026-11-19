@@ -9,7 +9,11 @@ export const iso = (d = new Date()) => {
   const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
   return z.toISOString().slice(0, 10);
 };
-export const today = () => iso(new Date());
+// Den začíná ve 4:00 – co odškrtneš po půlnoci před spaním, patří ještě ke včerejšku.
+export const DAY_START_H = 4;
+export const today = () => iso(new Date(Date.now() - DAY_START_H * 3600e3));
+// minuty od půlnoci „herního“ dne (po půlnoci pokračuje 24:xx, 25:xx …)
+export const dayMins = () => { const d = new Date(); const m = d.getHours() * 60 + d.getMinutes(); return d.getHours() < DAY_START_H ? m + 1440 : m; };
 export const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 export const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
 export const diffDays = (a, b) => Math.round((parse(a) - parse(b)) / 86400000);

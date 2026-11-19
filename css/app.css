@@ -920,3 +920,4 @@ body { overflow: hidden; }
 body[data-page="onboarding"] #view { padding-bottom: 40px; }
 #tabs { position: relative; flex: none; left: auto; right: auto; bottom: auto; }
 body.has-sheet #view { overflow: hidden; }
+.my-code { flex-wrap: wrap; }

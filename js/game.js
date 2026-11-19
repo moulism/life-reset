@@ -263,7 +263,9 @@ export function nextRewards(s = stats(), n = 4) {
     const q = /Série (\d+)/.exec(u.desc); if (q) return Number(q[1]) - s.streak;
     return 50;
   };
-  return UNLOCKS.filter(u => u.kind !== 'badge' && !un.includes(u.id)).sort((a, b) => need(a) - need(b)).slice(0, n);
+  const style = (profile() || {}).style || 'hud';
+  const skip = style === 'clean' ? 'theme' : 'accent'; // ukazovat jen barvy pro styl, který používáš
+  return UNLOCKS.filter(u => u.kind !== 'badge' && u.kind !== skip && !un.includes(u.id)).sort((a, b) => need(a) - need(b)).slice(0, n);
 }
 
 // bonusy: skvělý/perfektní den, všechny bloky dne, milníky série, ranní ptáče

@@ -116,14 +116,14 @@ export default {
         <div class="reactor-side">
           <div class="stat"><span class="k">Level</span><b>${s.level}</b><span class="v">${esc(s.rank)}</span></div>
           <div class="stat"><span class="k">XP</span><b>${num(s.xp - s.cur)}<small>/${num(s.next - s.cur)}</small></b><span class="v">do levelu ${s.level + 1}</span></div>
-          <div class="stat ${s.streak ? 'hot' : ''}"><span class="k">Série</span><b>${s.streak}${icon('flame', 18)}</b><span class="v">${s.today.score >= STREAK_MIN ? 'dnešek se počítá' : `ještě ${STREAK_MIN - s.today.score} bodů`}</span></div>
+          <div class="stat ${s.streak ? 'hot' : ''}"><span class="k">Série</span><b>${s.streak}${icon('flame', 18)}</b><span class="v">${s.today.score >= STREAK_MIN ? 'dnešek se počítá' : `ještě ${STREAK_MIN - s.today.score} ${STREAK_MIN - s.today.score === 1 ? 'bod' : STREAK_MIN - s.today.score < 5 ? 'body' : 'bodů'}`}</span></div>
         </div>
         <ul class="parts">
           ${has('week') && parts.blocks[1] ? `<li><span>Bloky</span><b>${parts.blocks[0]}/${parts.blocks[1]}</b></li>` : ''}
           ${has('habits') && parts.routine[1] ? `<li><span>Návyky</span><b>${parts.routine[0]}/${parts.routine[1]}</b></li>` : ''}
           ${has('tasks') ? `<li><span>Úkoly</span><b>${parts.tasks[1] ? `${parts.tasks[0]}/${parts.tasks[1]}` : '–'}</b></li>` : ''}
           ${has('diary') ? `<li><span>Deník</span><b>${parts.journal ? 'ano' : 'ne'}</b></li>` : ''}
-          ${has('food') ? `<li><span>Kalorie</span><b>${num(parts.kcal)}</b></li>` : ''}
+          ${has('food') && (parts.kcal || db.all('meals').some(m => m.date >= addDays(t, -6))) ? `<li><span>Kalorie</span><b>${num(parts.kcal)}</b></li>` : ''}
         </ul>
       </section>` : ''}
 

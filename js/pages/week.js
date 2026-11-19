@@ -348,6 +348,7 @@ function reviewView(root, { refresh, go }) {
   const blocksDone = blocksAll.filter(({ b, d }) => { const s = statusFor(d, b); return s && s.status === 'done'; }).length;
   const pl = places();
   const wp = db.find('weekplan', x => x.week === nextMon) || { week: nextMon, places: {} };
+  const which = nextMon === mondayOf(t) ? 'tento týden' : 'příští týden';
   const best = stats.filter(a => a.target).sort((a, b) => b.done / b.target - a.done / a.target)[0];
   const worst = stats.filter(a => a.target).sort((a, b) => a.done / a.target - b.done / b.target)[0];
 
@@ -365,7 +366,7 @@ function reviewView(root, { refresh, go }) {
     </section>
 
     ${pl.length ? `<section class="panel">
-      <div class="panel-head"><h3>${icon('calendar', 18)} Kde budeš příští týden</h3></div>
+      <div class="panel-head"><h3>${icon('calendar', 18)} Kde budeš ${which}</h3></div>
       <div class="place-week">${nextDays.map(d => {
         const wd = String(weekday(d));
         const cur = wp.places && wp.places[wd] != null ? wp.places[wd] : ((profile().placeDefault || {})[wd] || pl[0]);
@@ -374,10 +375,10 @@ function reviewView(root, { refresh, go }) {
     </section>` : ''}
 
     <section class="panel">
-      <div class="panel-head"><h3>${icon('target', 18)} 3 priority na příští týden</h3></div>
+      <div class="panel-head"><h3>${icon('target', 18)} 3 priority na ${which}</h3></div>
       <form class="form" data-form="focus">
         ${[0, 1, 2].map(i => `<div class="field"><input name="f${i}" value="${esc((wp.focus || [])[i] || '')}" placeholder="${['Např. Odevzdat esej', 'Např. 3× trénink', 'Např. Drop 02 – focení'][i]}"></div>`).join('')}
-        <label class="check-field"><input type="checkbox" name="mk" ${wp.reviewed ? '' : 'checked'}><span class="cbox">${icon('check', 14)}</span><span>Přidat je jako úkoly na pondělí</span></label>
+        <label class="check-field"><input type="checkbox" name="mk" ${wp.reviewed ? '' : 'checked'}><span class="cbox">${icon('check', 14)}</span><span>${nextMon === mondayOf(t) ? 'Přidat je jako úkoly na dnes' : 'Přidat je jako úkoly na pondělí'}</span></label>
         <button class="btn primary big" type="submit">${icon('check', 18)} Týden připravený</button>
       </form>
     </section>
@@ -394,7 +395,8 @@ function reviewView(root, { refresh, go }) {
     const f = e.target;
     const focus = [0, 1, 2].map(i => f[`f${i}`].value.trim()).filter(Boolean);
     const cur = db.find('weekplan', x => x.week === nextMon) || { week: nextMon, places: {} };
-    if (f.mk.checked && has('tasks')) focus.forEach(title => { if (!db.find('tasks', x => x.title === title && x.due === nextMon)) db.put('tasks', { title, due: nextMon, prio: 3, done: false, created: new Date().toISOString() }); });
+    const due = nextMon < today() ? today() : nextMon;
+    if (f.mk.checked && has('tasks')) focus.forEach(title => { if (!db.find('tasks', x => x.title === title && x.due === due)) db.put('tasks', { title, due, prio: 3, done: false, created: new Date().toISOString() }); });
     db.put('weekplan', { ...cur, focus, reviewed: new Date().toISOString() });
     award('review:' + nextMon, 40, 'Příprava týdne');
     toast(`${icon('bolt', 18)} Týden připravený`, 'gold');

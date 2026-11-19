@@ -1,5 +1,5 @@
 // Life Reset – start aplikace, router, horní lišta a navigace.
-import { profile, currentUid } from './store.js';
+import { profile, currentUid, setProfile } from './store.js';
 import { has } from './mods.js';
 import { initSync, sync } from './sync.js';
 import { applyTheme, checkUnlocks, stats } from './game.js';
@@ -58,6 +58,8 @@ function render(keepScroll = false) {
   const p = profile();
   // jazyk z profilu (třeba po přihlášení na novém zařízení)
   if (p && p.lang && p.lang !== lang()) { setLang(p.lang); location.reload(); return; }
+  // nový modul Přátelé: profilům z doby před jeho vydáním ho jednou zapne
+  if (p && p.v2 && Array.isArray(p.modules) && !p.modFriends) { setProfile({ modules: p.modules.includes('friends') ? p.modules : [...p.modules, 'friends'], modFriends: true }); }
   let { name, args } = parseHash();
   // pozvánka od kamaráda – schová se, dokud se člověk nepřihlásí a neprojde průvodcem
   if (name === 'friends' && args[0] === 'add' && args[1] && (!currentUid() || !p || !p.v2)) { try { localStorage.setItem('lr:invite', args[1]); } catch (e) { /* */ } }

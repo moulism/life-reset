@@ -194,6 +194,7 @@ const EN = {
   'Dokumenty': 'Documents', 'Brzy': 'Soon', 'Později': 'Later', 'Čas': 'Time', 'Zápis': 'Entry', 'Vážení': 'Weigh-in', 'Kalorie splněny': 'Calories hit', 'Celá rutina': 'Full routine',
 
   // --- přátelé & XP ---
+  'Kde budeš tento týden': 'Where you’ll be this week', '# priority na tento týden': '# priorities for this week', 'Přidat je jako úkoly na dnes': 'Add them as tasks for today', 'Série # / # / # / # / # / # dní': 'Streak # / # / # / # / # / # days', 'Vítěz týdne mezi přáteli': 'Weekly winner among friends', '+# až +#': '+# to +#',
   'Přátelé': 'Friends', 'Přátelé & soutěž': 'Friends & competition', 'Žebříček s kamarády – kdo je tento týden disciplinovanější': 'Leaderboard with friends – who is more disciplined this week',
   'Přidat kamaráda': 'Add a friend', 'Kód kamaráda (např. KA#B#M)': 'Friend’s code (e.g. KA8B7M)', 'Tvůj kód': 'Your code', 'Kopírovat': 'Copy', 'Pozvat': 'Invite', 'Kód zkopírován': 'Code copied', 'Pozvánka zkopírována': 'Invite copied',
   'Pošli kamarádovi pozvánku. Když nemá Life Reset, udělá si účet a pak otevře odkaz znovu.': 'Send your friend an invite. If they don’t have Life Reset, they create an account and open the link again.',
